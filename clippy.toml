@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Clippy thresholds used by every gate.
+avoid-breaking-exported-api = false
+cognitive-complexity-threshold = 15
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+too-many-lines-threshold = 100
+pass-by-value-size-limit = 256
+
+# `clippy::trivially_copy_pass_by_ref` fires on any `&T` where `T: Copy` is at most this
+# many bytes, counting `&self`. This is Clippy's own default on a 64-bit target, stated
+# here so the number is a decision rather than a default that drifts, and so raising it to
+# quiet one call site is a visible edit to a shared file.
+trivial-copy-size-limit = 16
+
+# Domain vocabulary that `clippy::doc_markdown` would otherwise ask us to wrap in
+# backticks. These are proper nouns in prose, not code identifiers. `..` extends
+# Clippy's default list rather than replacing it.
+doc-valid-idents = [
+  "CCID",
+  "APDU",
+  "APDUs",
+  "TPDU",
+  "TPDUs",
+  "ATR",
+  "ATRs",
+  "AID",
+  "AIDs",
+  "USB",
+  "PIV",
+  "PCSC",
+  "WinUSB",
+  "IFSD",
+  "EMV",
+  "eID",
+  "GemPC",
+  "OpenPGP",
+  "..",
+]
+
+# Test-only exceptions.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true
+allow-dbg-in-tests = true
+
+disallowed-macros = [
+  { path = "lazy_static::lazy_static", reason = "use core::cell::OnceCell or std::sync::LazyLock" },
+]
+disallowed-types = [
+  { path = "once_cell::sync::Lazy", reason = "use std::sync::LazyLock (stable since 1.80)" },
+  { path = "once_cell::sync::OnceCell", reason = "use std::sync::OnceLock (stable since 1.70)" },
+  # The quirk table, reader listings, and every diagnostic dump must come out in one
+  # order every run: a `ccdev doctor` report is compared across machines by eye.
+  { path = "std::collections::HashMap", reason = "non-deterministic iteration; use BTreeMap or a sorted Vec" },
+  { path = "std::collections::HashSet", reason = "non-deterministic iteration; use BTreeSet or a sorted Vec" },
+]

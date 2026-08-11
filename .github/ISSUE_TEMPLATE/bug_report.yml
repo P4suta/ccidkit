@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Bug report
+description: A compile failure, a broken API, or a tool that does not do what it documents
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        For a reader that does not work, misbehaves, or seems to need a quirk entry, use
+        **Reader report** instead — that needs different information and its outcome is
+        usually a `quirks/readers.toml` entry with evidence. For a panic, a hang, or an
+        allocation driven by a device's answer, report it privately through
+        [a security advisory](https://github.com/P4suta/ccidkit/security/advisories/new)
+        rather than here.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: The smallest program or `just` command that shows it.
+      render: rust
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "ccidkit 0.1.0, rustc 1.85.0, x86_64-unknown-linux-gnu"
+    validations:
+      required: true

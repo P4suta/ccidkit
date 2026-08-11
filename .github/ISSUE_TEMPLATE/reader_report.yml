@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Reader report
+description: A reader that does not work, misbehaves, or seems to need a quirk entry
+labels: ["quirk"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when a specific reader model misbehaves. The goal of this template is a
+        `quirks/readers.toml` entry with evidence: every quirk in that table carries a
+        reproduction of our own ([ADR 0009][adr0009]), so the questions below ask for
+        exactly what such an entry needs. Once `ccdev doctor` exists it will collect most
+        of this for you.
+
+        [adr0009]: https://github.com/P4suta/ccidkit/blob/main/docs/adr/0009-quirks-are-data-with-provenance.md
+
+  - type: input
+    id: identity
+    attributes:
+      label: Reader identity
+      description: USB vendor and product id, and the marketing name.
+      placeholder: "08e6:3437, Gemalto GemPC Twin"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and backend
+      description: Operating system, and whether the native USB backend or the PC/SC shim was in use.
+      placeholder: "Linux 6.12, native (nusb); pcscd not running"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What the reader does
+      description: >-
+        The observed misbehavior, and where in the exchange it happens — enumeration,
+        power-on, ATR, a specific APDU.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: descriptor
+    attributes:
+      label: USB descriptor dump
+      description: >-
+        `lsusb -v` for the device (or the equivalent), if you can get it. The class
+        descriptor's claims are usually half the story.
+      render: text
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Capture or trace
+      description: >-
+        A usbmon/Wireshark capture, a pcsc-spy log, or the exchange trace, if you have
+        one. This becomes the provenance evidence of the quirk entry.
+      render: text
+
+  - type: dropdown
+    id: other-stacks
+    attributes:
+      label: Behavior under the platform stack
+      description: Does the reader work through the OS smart card service (libccid/winscard)?
+      options:
+        - works there, fails here
+        - fails there too
+        - not tried
+    validations:
+      required: true

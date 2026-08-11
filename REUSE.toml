@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Licensing for files that cannot carry an inline SPDX header.
+#
+# Every source and config file in this repository starts with the three-line header
+# instead; this file covers only the rest. `just reuse` checks both.
+#
+# Note what is deliberately absent: there is no blanket annotation over captured USB
+# traffic. When cassettes distilled from a real reader's traffic land (docs/adr/0010),
+# each capture records which device produced it and under what circumstances, in its own
+# annotation — a recording of a conversation with someone else's firmware is not this
+# project's creative work to blanket-license.
+version = 1
+
+[[annotations]]
+path = ["**/*.md", "Cargo.lock", ".gitignore", ".github/CODEOWNERS"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ccidkit contributors"
+SPDX-License-Identifier = "MIT OR Apache-2.0"

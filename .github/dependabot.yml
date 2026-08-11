@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Dependabot version updates. Weekly PRs for the GitHub Actions the workflows use, and for
+# Cargo crates once any exist. Every commit is prefixed `build(deps)` so the Conventional
+# Commits gate accepts a Dependabot-authored commit. Patch and minor Cargo updates group
+# together; unrelated majors land on their own so each breaking change is weighed
+# separately.
+#
+# Note that `ccid-apdu` and `ccid-testkit` are designed to have no dependencies at all
+# and the pure layer takes nothing from outside itself (docs/adr/0013, enforced by
+# `just purity` and `just deps`), so the Cargo entry exists to cover the backends, the
+# facade, and the binaries rather than the whole graph.
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      cargo-minor:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      github-actions:
+        patterns: ["*"]

@@ -1,0 +1,23 @@
+# Default owner for everything.
+* @P4suta
+
+# Architecture-affecting files require extra scrutiny.
+/Cargo.toml @P4suta
+/Cargo.lock @P4suta
+/rust-toolchain.toml @P4suta
+/.github/ @P4suta
+
+# The frozen decisions. A change here changes what the library is allowed to be.
+/docs/adr/ @P4suta
+/ARCHITECTURE.md @P4suta
+
+# The gates that keep the graph, the quarantine, and the quirk schema true.
+/xtask/ @P4suta
+
+# The dependency-zero charter and the trait surface every backend must satisfy.
+/crates/ccid-apdu/ @P4suta
+/crates/ccid-core/ @P4suta
+
+# Every entry is a claim about someone's hardware, backed by a reproduction. Bulk edits
+# here are how a quirk table becomes folklore.
+/quirks/ @P4suta

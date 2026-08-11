@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccid-backend-virtual"
+description = "Scripted virtual reader and card for testing smart card code without hardware"
+keywords = ["smartcard", "testing", "mock", "ccid", "virtual"]
+categories = ["development-tools::testing", "hardware-support", "emulators"]
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# Dependencies are declared when code needs them. The workspace edges may only be core
+# and apdu (`just deps`); a future `vpcd` feature adds the vicc TCP bridge, not a crate.
+[dependencies]
+
+[lints]
+workspace = true

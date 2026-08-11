@@ -1,0 +1,28 @@
+# Rust build output
+/target
+**/*.rs.bk
+*.pdb
+*.tmp
+# Cargo.lock is committed: the exact dependency graph is part of the reproducible build.
+# The quirk table promises every entry was reproduced (docs/adr/0009), so the build a
+# reproduction ran on has to be recoverable.
+
+# cargo-fuzz build output. `fuzz/` will be its own workspace (the root manifest excludes
+# it) and will have its own .gitignore; these root-anchored entries keep `reuse lint`
+# (which reads this file) in agreement with git about what is generated. Curated
+# `fuzz/corpus/` seeds are committed.
+/fuzz/target/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# mise local overrides (per-developer, never committed)
+/mise.local.toml
+/.mise.local.toml
+
+# Editor / OS
+/.idea/
+/.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+.claude/

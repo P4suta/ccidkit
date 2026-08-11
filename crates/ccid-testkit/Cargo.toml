@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccid-testkit"
+description = "Dev-only test helpers for the ccidkit workspace"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# Intentionally empty, and kept that way by `just deps` (ZERO_DEP): helpers that every
+# crate's tests may use must themselves pull nothing in, or the purity of the crates
+# under test is fiction. Reachable only from dev-dependency tables (`just deps`, R5).
+[dependencies]
+
+[lints]
+workspace = true

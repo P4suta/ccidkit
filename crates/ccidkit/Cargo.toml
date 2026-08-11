@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccidkit"
+description = "Pure-Rust smart card stack: CCID readers over USB, with a PC/SC shim and a virtual backend"
+keywords = ["smartcard", "ccid", "pcsc", "apdu", "reader"]
+categories = ["hardware-support", "authentication", "api-bindings"]
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# Dependencies are declared when code needs them. This crate may name core, apdu, and
+# the three backends (`just deps`); it is the one place runtime heterogeneity lives.
+[dependencies]
+
+[lints]
+workspace = true

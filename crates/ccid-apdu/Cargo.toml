@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccid-apdu"
+description = "APDU, status word, ATR, and AID vocabulary for smart cards, with zero dependencies"
+keywords = ["apdu", "smartcard", "atr", "iso7816", "ccid"]
+categories = ["parser-implementations", "encoding", "hardware-support"]
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# Intentionally empty, and kept that way by `just deps` (ZERO_DEP) and `just purity`:
+# this crate is the dependency-zero charter (docs/adr/0013), dev-dependencies included.
+[dependencies]
+
+[lints]
+workspace = true

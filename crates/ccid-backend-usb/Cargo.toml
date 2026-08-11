@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccid-backend-usb"
+description = "Native USB CCID backend: enumeration, bulk/interrupt transfer, and hotplug over nusb"
+keywords = ["ccid", "smartcard", "usb", "nusb", "reader"]
+categories = ["hardware-support", "authentication"]
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# Dependencies are declared when code needs them: `nusb` arrives with the first transfer
+# (M5), and the workspace edges may only be core, apdu, and proto (`just deps`).
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Release configuration. Nothing here publishes automatically: the workspace is at 0.0.0
+# and the first published version should be a decision, not a side effect of merging. A
+# release also implies the quirk table's promises hold (docs/adr/0009) and the platform
+# default table (docs/adr/0006) matches what was tested, and neither is something a merge
+# should assert on its own.
+#
+# The crates move as one version. `ccid-apdu` is useful alone — "what does SW 6982 mean"
+# is a question tooling asks without a reader attached — but it shares this workspace's
+# release group while it is pre-1.0; if it acquires an audience of its own it should be
+# split out rather than pinned here.
+
+[workspace]
+dependencies_update = false
+release_always = false
+# Stated rather than merely absent: no automation publishes to crates.io. There is no
+# release workflow either, so today this changes nothing — it is here so that adding one
+# does not make publishing a side effect of the addition.
+publish = false
+# Pre-1.0 the public surface is still being discovered. A future release phase must choose
+# and document its own compatibility policy rather than silently freezing this.
+semver_check = false
+git_tag_enable = false
+git_release_enable = false
+changelog_update = false
+
+[[package]]
+name = "ccid-apdu"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-core"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-proto"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-testkit"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-backend-usb"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-backend-pcsc"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-backend-virtual"
+version_group = "ccidkit"
+
+# The facade is the only crate that tags and releases, and its changelog covers the rest.
+[[package]]
+name = "ccidkit"
+version_group = "ccidkit"
+changelog_update = true
+changelog_path = "./CHANGELOG.md"
+changelog_include = [
+  "ccid-apdu",
+  "ccid-core",
+  "ccid-proto",
+  "ccid-backend-usb",
+  "ccid-backend-pcsc",
+  "ccid-backend-virtual",
+  "ccid-cli",
+]
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_enable = true
+git_release_draft = true
+
+[[package]]
+name = "ccid-cli"
+version_group = "ccidkit"
+
+[[package]]
+name = "ccid-driverkit"
+version_group = "ccidkit"

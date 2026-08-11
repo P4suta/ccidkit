@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccid-cli"
+description = "Command-line tool to list readers, read ATRs, and exchange APDUs"
+keywords = ["smartcard", "ccid", "cli", "apdu", "atr"]
+categories = ["command-line-utilities", "hardware-support"]
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# The facade crate is `ccidkit` and this binary is `ccid`. They must never share a name:
+# parallel rustdoc fights over `target/doc/<name>` and `cargo doc` dies (docs/adr/0015).
+[[bin]]
+name = "ccid"
+path = "src/main.rs"
+
+# Dependencies are declared when code needs them. The only workspace edge this crate may
+# declare is `ccidkit` (`just deps`): the CLI proves the facade suffices.
+[dependencies]
+
+[lints]
+workspace = true

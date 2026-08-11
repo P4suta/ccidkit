@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+blank_issues_enabled: false
+contact_links:
+  - name: USB-IF CCID specification, Revision 1.1
+    url: https://www.usb.org/sites/default/files/DWG_Smart-Card_CCID_Rev110.pdf
+    about: The specification the native backend implements. It decides any disagreement.
+  - name: vsmartcard (vpcd/vicc)
+    url: https://github.com/frankmorgner/vsmartcard
+    about: The virtual reader and card used as a hardware-free oracle.
+  - name: Security vulnerability
+    url: https://github.com/P4suta/ccidkit/security/advisories/new
+    about: >-
+      Report privately instead of opening an issue. A panic, a hang, or an unbounded
+      allocation driven by a device's answer belongs here.

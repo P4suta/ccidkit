@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "ccid-driverkit"
+description = "Reader bring-up and diagnosis tool for the ccidkit workspace"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+# The binary is `ccdev`, not the package name: no bin target may share a name with any
+# lib crate (docs/adr/0015, `just bin-name`).
+[[bin]]
+name = "ccdev"
+path = "src/main.rs"
+
+# Dependencies are declared when code needs them. This tool may reach below the facade —
+# core, apdu, proto, the USB and virtual backends (`just deps`) — because diagnosing a
+# reader means seeing the layers the facade hides.
+[dependencies]
+
+[lints]
+workspace = true

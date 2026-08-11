@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[workspace]
+resolver = "3"
+members = [
+  "crates/ccid-apdu",
+  "crates/ccid-core",
+  "crates/ccid-proto",
+  "crates/ccid-testkit",
+  "crates/ccid-backend-usb",
+  "crates/ccid-backend-pcsc",
+  "crates/ccid-backend-virtual",
+  "crates/ccidkit",
+  "crates/ccid-cli",
+  "crates/ccid-driverkit",
+  "xtask",
+]
+# cargo-fuzz requires nightly and a sanitizer runtime.
+exclude = ["fuzz"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+# Floor imposed by edition 2024.
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["Yasunobu Sakashita <crates.tank733@slmails.com>"]
+repository = "https://github.com/P4suta/ccidkit"
+homepage = "https://github.com/P4suta/ccidkit"
+
+# Inter-crate dependencies are declared as each crate's code starts needing them, so
+# `cargo shear` stays meaningful. The intended graph is in ARCHITECTURE.md and is
+# enforced by `just deps` against the ALLOWED matrix in xtask/src/deps.rs.
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Production code must not use unwrap, expect, panic, or unreachable fallbacks.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+unreachable = "warn"
+# Every message length, slot count, ATR byte count, and `dwLength` field comes from the
+# device being spoken to. Arithmetic on those numbers must state what it does on overflow.
+arithmetic_side_effects = "warn"
+# Index and slice panics are the classic parser vulnerability, and `ccid-proto` and
+# `ccid-apdu` parse bytes a reader produced.
+indexing_slicing = "warn"
+missing_errors_doc = "allow"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+# `forbid(unsafe_code)` is deliberately absent: `ccid-backend-pcsc` is the one unsafe
+# quarantine (docs/adr/0011), and the `unsafe-boundary` xtask gate confines the token to
+# it. What is denied everywhere is an unsafe operation hiding inside an `unsafe fn`
+# without its own block and `// SAFETY:` comment.
+unsafe_op_in_unsafe_fn = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

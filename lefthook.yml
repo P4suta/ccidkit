@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Install with `mise run hooks`.
+#
+# Every command runs through `mise exec --` so a hook uses the versions pinned in
+# mise.toml rather than whatever is on PATH.
+
+min_version: 2.1.9
+assert_lefthook_installed: true
+no_tty: false
+colors: true
+
+commit-msg:
+  commands:
+    conventional:
+      run: mise exec -- committed --commit-file {1}
+
+pre-commit:
+  parallel: false
+  follow: true
+  commands:
+    cargo-fmt:
+      tags: format
+      glob: "*.rs"
+      run: mise exec -- just fmt
+      stage_fixed: true
+
+    taplo-fmt:
+      tags: format
+      glob: "*.toml"
+      run: mise exec -- taplo fmt
+      stage_fixed: true
+
+    # `--force-exclude` is load-bearing: without it typos ignores the `extend-exclude`
+    # of typos.toml for paths named on the command line, and `{staged_files}` names every
+    # path. `--write-changes` would then "correct" a committed capture or the generated
+    # CHANGELOG. The exclusion policy stays in typos.toml alone; this flag makes the hook
+    # obey it.
+    typos:
+      tags: spell
+      run: mise exec -- typos --force-exclude --write-changes {staged_files}
+      stage_fixed: true
+
+    clippy:
+      tags: lint
+      glob: "*.rs"
+      run: mise exec -- just lint
+      fail_text: "Clippy failed; fix every warning before committing."
+
+    purity:
+      tags: lint
+      glob: "{**/Cargo.toml,**/*.rs}"
+      run: mise exec -- just purity
+      fail_text: "The pure layer gained an outside dependency (docs/adr/0013)."
+
+    deps:
+      tags: lint
+      glob: "**/Cargo.toml"
+      run: mise exec -- just deps
+      fail_text: "A dependency edge left the ALLOWED matrix (docs/adr/0013)."
+
+    unsafe-boundary:
+      tags: lint
+      glob: "**/*.rs"
+      run: mise exec -- just unsafe-boundary
+      fail_text: "`unsafe` escaped the quarantine or lost its SAFETY comment (docs/adr/0011)."
+
+    quirkdb:
+      tags: lint
+      glob: "quirks/*.toml"
+      run: mise exec -- just quirkdb
+      fail_text: "quirks/readers.toml broke its schema or lost a provenance (docs/adr/0009)."
+
+    reuse:
+      tags: license
+      glob: "{**/*.rs,**/*.toml,**/*.md,**/*.yml,Justfile,REUSE.toml,LICENSES/*}"
+      run: mise exec -- just reuse
+
+pre-push:
+  parallel: false
+  follow: true
+  commands:
+    local-ci:
+      tags: ci
+      run: mise exec -- just ci
+      fail_text: "Local CI failed; fix the reported gate before pushing."
+
+# Explicit manual entry point: `lefthook run local-ci`.
+local-ci:
+  parallel: false
+  follow: true
+  commands:
+    all:
+      tags: ci
+      run: mise exec -- just ci

@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Force LF in the working tree on every platform. The toolchain expects LF
+# everywhere — rustfmt (`newline_style = "Unix"`), taplo, and `.editorconfig`.
+# Without this, Git's `core.autocrlf=true` (the Windows default) checks files out
+# as CRLF, so formatting checks and Lefthook can fail on a native Windows host
+# even though the repository blobs are LF.
+# `text=auto` still lets Git auto-detect and leave binaries alone.
+#
+# Existing Windows clones: after pulling this file, run once to refresh the working
+# tree to LF:  git add --renormalize . && git checkout .
+* text=auto eol=lf
+
+# Raw USB captures are binary. Cassettes are hex-in-TOML (docs/adr/0010) and are
+# text; only the captures they were distilled from are opaque.
+*.pcapng binary
+*.pcap binary
+*.bin binary
+**/tests/fixtures/** -text
+fuzz/corpus/** -text
