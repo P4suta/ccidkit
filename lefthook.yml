@@ -53,25 +53,25 @@ pre-commit:
       tags: lint
       glob: "{**/Cargo.toml,**/*.rs}"
       run: mise exec -- just purity
-      fail_text: "The pure layer gained an outside dependency (docs/adr/0013)."
+      fail_text: "A pure protocol module gained an effect or backend import (ADR-0016)."
 
     deps:
       tags: lint
       glob: "**/Cargo.toml"
       run: mise exec -- just deps
-      fail_text: "A dependency edge left the ALLOWED matrix (docs/adr/0013)."
+      fail_text: "A dependency edge left the ALLOWED matrix (ADR-0016)."
 
     unsafe-boundary:
       tags: lint
       glob: "**/*.rs"
       run: mise exec -- just unsafe-boundary
-      fail_text: "`unsafe` escaped the quarantine or lost its SAFETY comment (docs/adr/0011)."
+      fail_text: "Repository Rust source introduced unsafe code (ADR-0016)."
 
     quirkdb:
       tags: lint
-      glob: "quirks/*.toml"
+      glob: "crates/ccidkit/quirks/*.toml"
       run: mise exec -- just quirkdb
-      fail_text: "quirks/readers.toml broke its schema or lost a provenance (docs/adr/0009)."
+      fail_text: "The packaged reader quirk table broke its schema or provenance."
 
     reuse:
       tags: license

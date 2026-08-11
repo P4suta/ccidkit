@@ -445,15 +445,15 @@ mod tests {
 
     #[test]
     fn reads_dependencies_with_their_table_kind() {
-        let manifest = "[dependencies]\nccid-apdu = { path = \"../ccid-apdu\" }\n\n[dev-dependencies]\nccid-testkit = { path = \"../ccid-testkit\" }\n";
+        let manifest = "[dependencies]\nalpha = { path = \"../alpha\" }\n\n[dev-dependencies]\nbeta = { path = \"../beta\" }\n";
         let names = declared_dependencies(manifest);
         assert!(names.contains(&Declared {
             dev: false,
-            name: "ccid-apdu".to_owned()
+            name: "alpha".to_owned()
         }));
         assert!(names.contains(&Declared {
             dev: true,
-            name: "ccid-testkit".to_owned()
+            name: "beta".to_owned()
         }));
         assert_eq!(names.len(), 2);
     }
@@ -501,8 +501,9 @@ mod tests {
     fn every_member_is_derived_with_a_manifest() {
         let found = members().expect("the workspace manifest is readable");
         let names: Vec<&str> = found.iter().map(|each| each.name.as_str()).collect();
-        assert!(names.contains(&"ccid-apdu"), "found {names:?}");
         assert!(names.contains(&"ccidkit"), "found {names:?}");
+        assert!(names.contains(&"ccid-cli"), "found {names:?}");
+        assert!(names.contains(&"ccid-driverkit"), "found {names:?}");
         assert!(names.contains(&"xtask"), "found {names:?}");
         for each in &found {
             assert!(

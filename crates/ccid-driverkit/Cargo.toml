@@ -20,10 +20,10 @@ homepage.workspace = true
 name = "ccdev"
 path = "src/main.rs"
 
-# Dependencies are declared when code needs them. This tool may reach below the facade —
-# core, apdu, proto, the USB and virtual backends (`just deps`) — because diagnosing a
-# reader means seeing the layers the facade hides.
+# The driver tool deliberately proves the stable diagnostics surface is sufficient; it
+# does not reach into private protocol or backend implementation modules.
 [dependencies]
+ccidkit = { path = "../ccidkit", version = "=0.0.0" }
 
 [lints]
 workspace = true

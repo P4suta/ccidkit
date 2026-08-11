@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# One reproduced reader quirk per entry. `just quirkdb` enforces sorting, uniqueness,
+# the closed flag vocabulary, and a complete provenance receipt. build.rs turns this
+# table into the private native-backend lookup; it is the only quirk source of truth.
+#
+# [[reader]]
+# vid = 0x08e6
+# pid = 0x3437
+# name = "Vendor Model 123"
+# flags = ["no-extended-apdu"]
+#
+# [reader.provenance]
+# source = "cassette" # cassette | issue | capture
+# evidence = "path or URL"
+# date = "2026-08-11"

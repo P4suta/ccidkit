@@ -10,10 +10,10 @@ body:
     attributes:
       value: |
         Use this when a specific reader model misbehaves. The goal of this template is a
-        `quirks/readers.toml` entry with evidence: every quirk in that table carries a
+        `crates/ccidkit/quirks/readers.toml` entry with evidence: every quirk in that table carries a
         reproduction of our own ([ADR 0009][adr0009]), so the questions below ask for
-        exactly what such an entry needs. Once `ccdev doctor` exists it will collect most
-        of this for you.
+        exactly what such an entry needs. Attach the output of `ccdev doctor`; it collects
+        the portable reader and backend facts without making a quirk decision for you.
 
         [adr0009]: https://github.com/P4suta/ccidkit/blob/main/docs/adr/0009-quirks-are-data-with-provenance.md
 
@@ -32,6 +32,15 @@ body:
       label: Platform and backend
       description: Operating system, and whether the native USB backend or the PC/SC shim was in use.
       placeholder: "Linux 6.12, native (nusb); pcscd not running"
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: ccdev doctor output
+      description: Run `ccdev doctor` with the affected reader connected.
+      render: text
     validations:
       required: true
 

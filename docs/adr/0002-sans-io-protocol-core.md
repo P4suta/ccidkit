@@ -1,6 +1,6 @@
 # ADR-0002: the protocol core is sans-I/O
 
-- Status: accepted
+- Status: superseded by ADR-0016
 - Date: 2026-08-11
 
 ## Context

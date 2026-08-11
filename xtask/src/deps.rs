@@ -4,13 +4,12 @@
 
 //! `deps` — every member's edges against the one dependency matrix.
 //!
-//! ARCHITECTURE.md draws the crate graph; this checks it. The rules, keyed to what each
+//! ARCHITECTURE.md draws the deliberately tiny package graph; this checks it. The rules, keyed to what each
 //! defends:
 //!
 //! * **R1 — the one rule.** A member's normal dependency on another member must be an
 //!   arrow [`ALLOWED`] carries.
-//! * **R2 — the charter.** A [`ZERO_DEP`] crate declares no normal dependency of any
-//!   kind, workspace or not (docs/adr/0013).
+//! * **R2 — the tooling charter.** A [`ZERO_DEP`] crate declares no normal dependency.
 //! * **R3 — no dev cycle.** A dev-dependency ships in nothing, so R1 does not reach it;
 //!   it may not close a cycle, which would state the architecture backwards.
 //! * **R5 — the testkit is dev-only.** A [`DEV_ONLY`] crate may be named only from a
@@ -19,9 +18,8 @@
 //!   row names a member, so a new crate cannot slip past by being unlisted and the
 //!   matrix cannot rot.
 //!
-//! The numbering is inherited from the libfprint-rs deps gate this is modeled on; R4
-//! (the unsafe quarantine) is its own gate here (`unsafe-boundary`), and R6 (no
-//! transitive third party in the charter) is the purity gate's closure rule.
+//! The numbering is inherited from the deps gate this is modeled on; source purity and
+//! the no-unsafe rule are separate gates because Cargo edges cannot express them.
 
 use std::fs;
 use std::io;
@@ -37,65 +35,23 @@ use crate::shared::{Gate, declared_dependencies, members};
 /// names `ccidkit` and nothing else — is stated in ARCHITECTURE.md and in each crate
 /// manifest's own comment. The rows are ordered as `Cargo.toml` orders the members.
 const ALLOWED: &[(&str, &[&str])] = &[
-    ("ccid-apdu", &[]),
-    ("ccid-core", &["ccid-apdu"]),
-    ("ccid-proto", &["ccid-apdu"]),
-    ("ccid-testkit", &[]),
-    (
-        "ccid-backend-usb",
-        &["ccid-core", "ccid-apdu", "ccid-proto"],
-    ),
-    ("ccid-backend-pcsc", &["ccid-core", "ccid-apdu"]),
-    ("ccid-backend-virtual", &["ccid-core", "ccid-apdu"]),
-    (
-        "ccidkit",
-        &[
-            "ccid-core",
-            "ccid-apdu",
-            "ccid-proto",
-            "ccid-backend-usb",
-            "ccid-backend-pcsc",
-            "ccid-backend-virtual",
-        ],
-    ),
-    (
-        "ccid-cli",
-        &[
-            "ccidkit",
-            "ccid-core",
-            "ccid-apdu",
-            "ccid-proto",
-            "ccid-backend-usb",
-            "ccid-backend-pcsc",
-            "ccid-backend-virtual",
-        ],
-    ),
-    (
-        "ccid-driverkit",
-        &[
-            "ccid-core",
-            "ccid-apdu",
-            "ccid-proto",
-            "ccid-backend-usb",
-            "ccid-backend-virtual",
-        ],
-    ),
+    ("ccidkit", &[]),
+    ("ccid-cli", &["ccidkit"]),
+    ("ccid-driverkit", &["ccidkit"]),
     ("xtask", &[]),
 ];
 
-/// The charter: crates whose dependency-freedom is a fixed architectural rule
-/// (docs/adr/0013). `ccid-apdu` is the vocabulary everything shares; `ccid-testkit`
-/// must not widen what a crate under test links.
-const ZERO_DEP: &[&str] = &["ccid-apdu", "ccid-testkit"];
+/// Repository tooling stays dependency-free so architecture gates remain easy to audit.
+const ZERO_DEP: &[&str] = &["xtask"];
 
 /// Crates that may be named only from a dev-dependency table.
-const DEV_ONLY: &[&str] = &["ccid-testkit"];
+const DEV_ONLY: &[&str] = &[];
 
 /// The gate, as the dispatcher's table wants it.
 pub(crate) const GATE: Gate = Gate {
     name: "deps",
     purpose: "every dependency edge is an arrow the ALLOWED matrix carries",
-    reference: "docs/adr/0013 and ARCHITECTURE.md",
+    reference: "docs/adr/0016 and ARCHITECTURE.md",
     run: check,
 };
 
@@ -148,7 +104,7 @@ fn check() -> io::Result<Vec<String>> {
             if on_charter && !declared.dev {
                 violations.push(format!(
                     "{name}: declares `{dep}`; this crate's dependency-freedom is \
-                     architecture (docs/adr/0013)",
+                     architecture (docs/adr/0016)",
                     name = member.name,
                 ));
                 continue;
@@ -263,22 +219,10 @@ mod tests {
     #[test]
     fn the_intended_direct_edges_read_as_the_design_says() {
         // Spot checks that the closure carries the design's sentences.
-        assert!(
-            reaches("ccid-core", "ccid-apdu"),
-            "core speaks the vocabulary"
-        );
         assert!(reaches("ccid-cli", "ccidkit"), "the CLI sits on the facade");
         assert!(
-            !reaches("ccid-proto", "ccid-core"),
-            "the protocol is below the traits, not beside them"
-        );
-        assert!(
-            !reaches("ccid-backend-pcsc", "ccid-proto"),
-            "the shim speaks APDU; the T machines never enter it"
-        );
-        assert!(
-            !reaches("ccid-driverkit", "ccidkit"),
-            "the driver tool reaches below the facade, never through it"
+            reaches("ccid-driverkit", "ccidkit"),
+            "the driver tool proves the diagnostics facade"
         );
         assert!(
             !reaches("ccidkit", "ccid-cli"),

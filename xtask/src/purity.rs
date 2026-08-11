@@ -2,117 +2,90 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! `purity` — the pure layer takes nothing from outside itself, dev-dependencies
-//! included.
-//!
-//! The pure layer is every workspace member this module does not exempt. That direction
-//! is deliberate: a crate added to the workspace is checked as pure until someone writes
-//! down why it is not, so the failure mode is a loud gate rather than a silent hole. The
-//! layer's members — `ccid-apdu`, `ccid-core`, `ccid-proto`, `ccid-backend-virtual` —
-//! may declare dependencies only on each other, in any table. This is what makes
-//! docs/adr/0013's "no third party arrives transitively" true by construction: a layer
-//! closed under itself cannot import anything through a member.
+//! `purity` — parser and protocol modules remain sans-I/O inside the one library.
 
 use std::fs;
 use std::io;
 
-use crate::shared::{Gate, declared_dependencies, members};
+use crate::shared::{Gate, code_of, workspace_root};
 
-/// Workspace members that are deliberately not part of the pure layer.
-///
-/// A denylist rather than an allowlist, because the two fail in opposite directions and
-/// only one of them fails safely. Each entry is a member path exactly as `Cargo.toml`
-/// spells it, and an entry naming something that is no longer a member is an error
-/// rather than a no-op, so this list cannot rot unnoticed.
-const NON_PURE_MEMBERS: &[&str] = &[
-    // Dev-only helpers; kept dependency-free by the deps gate's ZERO_DEP rule instead.
-    "crates/ccid-testkit",
-    // Owns real USB I/O and will take `nusb` (docs/adr/0001).
-    "crates/ccid-backend-usb",
-    // The shim: links the platform PC/SC service and is the unsafe quarantine
-    // (docs/adr/0007, 0011).
-    "crates/ccid-backend-pcsc",
-    // The facade composes the backends, so it reaches whatever they reach.
-    "crates/ccidkit",
-    // The binaries sit above the facade and may take argument parsing and the like.
-    "crates/ccid-cli",
-    "crates/ccid-driverkit",
-    // The repository's own tooling, which is this program.
-    "xtask",
+/// Pure files are kept inside the library instead of being semver-bearing crates.
+const PURE_SOURCES: &[&str] = &[
+    "crates/ccidkit/src/model.rs",
+    "crates/ccidkit/src/ccid.rs",
+    "crates/ccidkit/src/protocol.rs",
 ];
 
-/// The gate, as the dispatcher's table wants it.
+/// Imports that would give a pure state transformation an effect or backend identity.
+const FORBIDDEN: &[&str] = &[
+    "std::fs",
+    "std::net",
+    "std::process",
+    "std::sync",
+    "std::thread",
+    "std::time",
+    "crate::backend",
+    "crate::facade",
+    "crate::operation",
+    "crate::testing",
+    "nusb",
+    "pcsc",
+];
+
 pub(crate) const GATE: Gate = Gate {
     name: "purity",
-    purpose: "the pure layer declares no dependency outside itself, dev included",
-    reference: "docs/adr/0013",
+    purpose: "the parser and protocol modules contain no I/O, clock, worker, or backend imports",
+    reference: "docs/adr/0016",
     run: check,
 };
 
-/// Check every pure crate's manifest against the closure rule.
 fn check() -> io::Result<Vec<String>> {
-    let all = members()?;
+    let root = workspace_root()?;
     let mut violations = Vec::new();
-
-    for exempted in NON_PURE_MEMBERS {
-        let expected = all
-            .iter()
-            .any(|member| member.directory.ends_with(exempted));
-        if !expected {
+    for relative in PURE_SOURCES {
+        let path = root.join(relative);
+        if !path.is_file() {
             return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "`{exempted}` is exempted from the pure layer but is not a workspace \
-                     member; the exemption list in xtask/src/purity.rs has gone stale"
-                ),
+                io::ErrorKind::NotFound,
+                format!("pure source `{relative}` is missing; update the gate with the move"),
             ));
         }
+        let text = fs::read_to_string(path)?;
+        violations.extend(violations_in(relative, &text));
     }
+    Ok(violations)
+}
 
-    let pure: Vec<_> = all
-        .iter()
-        .filter(|member| {
-            !NON_PURE_MEMBERS
-                .iter()
-                .any(|exempted| member.directory.ends_with(exempted))
-        })
-        .collect();
-    let pure_names: Vec<&str> = pure.iter().map(|member| member.name.as_str()).collect();
-
-    for member in &pure {
-        let manifest = fs::read_to_string(member.directory.join("Cargo.toml"))?;
-        for declared in declared_dependencies(&manifest) {
-            if !pure_names.contains(&declared.name.as_str()) {
-                let table = if declared.dev { "dev-" } else { "" };
+fn violations_in(name: &str, text: &str) -> Vec<String> {
+    let mut violations = Vec::new();
+    for (index, line) in text.lines().enumerate() {
+        let Some(code) = code_of(line) else {
+            continue;
+        };
+        for forbidden in FORBIDDEN {
+            if code.contains(forbidden) {
                 violations.push(format!(
-                    "{crate_name}: declares {table}dependency `{name}`; the pure layer \
-                     may depend only on itself (docs/adr/0013)",
-                    crate_name = member.name,
-                    name = declared.name,
+                    "{name}:{line}: pure module names `{forbidden}` (docs/adr/0016)",
+                    line = index.saturating_add(1),
                 ));
             }
         }
     }
-
-    Ok(violations)
+    violations
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NON_PURE_MEMBERS, check};
+    use super::{check, violations_in};
 
     #[test]
-    fn the_bootstrap_workspace_is_pure() {
+    fn committed_protocol_sources_are_pure() {
         assert_eq!(check().expect("the gate runs"), Vec::<String>::new());
     }
 
     #[test]
-    fn the_denylist_is_paths_not_names() {
-        for exempted in NON_PURE_MEMBERS {
-            assert!(
-                *exempted == "xtask" || exempted.starts_with("crates/"),
-                "{exempted} is spelled as Cargo.toml spells members"
-            );
-        }
+    fn effects_are_rejected_but_prose_is_not() {
+        assert_eq!(violations_in("x.rs", "use std::time::Instant;\n").len(), 1);
+        assert!(violations_in("x.rs", "// std::time is discussed\n").is_empty());
     }
 }

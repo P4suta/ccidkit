@@ -2,32 +2,50 @@
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! The crate to depend on: the whole stack behind one door.
+//! Smart-card I/O behind one small, runtime-neutral API.
 //!
-//! This facade re-exports the vocabulary (`ccid-apdu`), the traits (`ccid-core`), and
-//! the backends, and adds the three things that belong above all of them:
+//! The ordinary path is deliberately short:
 //!
-//! - **`Composite`**, the one enum over the backends, delegating by hand-written
-//!   `match` (docs/adr/0003). The core traits stay statically dispatched; a program
-//!   that must pick its backend at run time picks here and nowhere lower.
-//! - **The platform default table** (docs/adr/0006): Linux prefers native USB and
-//!   diagnoses a `pcscd` collision by name; Windows defaults to the `winscard` shim
-//!   with WinUSB rebinding as an explicit opt-in; macOS defaults to the
-//!   `PCSC.framework` shim. Coexistence over conquest, spelled out in one table.
-//! - **The quickstart surface**: connect to the first card, transmit, done — for the
-//!   caller who wants a card, not a stack.
+//! ```no_run
+//! let mut card = ccidkit::open_first().wait()?;
+//! let command = ccidkit::Command::new(0x00, 0x84, 0x00, 0x00)
+//!     .with_expected_len(8)?;
+//! let response = card.transmit(command).wait()?;
+//! # Ok::<(), ccidkit::Error>(())
+//! ```
 //!
-//! This crate is also the workspace's changelog carrier: release notes for every crate
-//! in the version group live in this repository's CHANGELOG.md.
-//!
-//! # Invariants
-//!
-//! - Everything reachable from here obeys the ALLOWED matrix (`just deps`); the facade
-//!   is the widest point and still names no third-party crate of its own.
-//! - The binary named `ccid` lives in `ccid-cli`, never here: a facade and a binary
-//!   sharing a name fight over `target/doc` (docs/adr/0015, `just bin-name`).
-//!
-//! # Status
-//!
-//! Bootstrap: no implementation. Re-exports and `Composite` arrive with the first
-//! backend in M3 (ROADMAP.md).
+//! Every I/O method returns [`Operation`], which can either be awaited or blocked on.
+//! Backend handles and third-party types never cross the public boundary.
+
+#![forbid(unsafe_code)]
+
+mod backend;
+#[cfg(any(
+    test,
+    target_os = "linux",
+    all(target_os = "windows", feature = "native-usb")
+))]
+mod ccid;
+mod diagnostics;
+mod error;
+mod facade;
+mod model;
+mod operation;
+#[cfg(any(
+    test,
+    target_os = "linux",
+    all(target_os = "windows", feature = "native-usb")
+))]
+mod protocol;
+
+pub mod testing;
+
+pub use diagnostics::{
+    BackendKind, Capabilities, Direction, ExchangeLevel, Layer, Trace, TraceEvent, TraceFrame,
+};
+pub use error::{Error, ErrorKind, Result};
+pub use facade::{
+    Card, Context, ContextBuilder, Event, Monitor, Reader, ReaderId, Transaction, open_first,
+};
+pub use model::{Atr, Command, Response, StatusError, StatusWord};
+pub use operation::Operation;

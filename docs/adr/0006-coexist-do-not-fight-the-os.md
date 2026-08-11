@@ -22,7 +22,7 @@ libccid failure mode this project measures itself against.
 Nothing in this workspace ever takes a device an OS service holds. The defaults, kept
 as an explicit per-platform table in the facade:
 
-- **Linux:** native (`ccid-backend-usb`). When claiming fails and `pcscd` plausibly
+- **Linux:** ccidkit's private native USB adapter. When claiming fails and `pcscd` plausibly
   holds the device, the error diagnoses the collision by name and says what to do —
   it never silently degrades.
 - **Windows:** the `winscard` shim. Native access requires rebinding the reader to

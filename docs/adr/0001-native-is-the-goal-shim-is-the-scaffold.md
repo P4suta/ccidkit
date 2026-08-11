@@ -1,6 +1,6 @@
 # ADR-0001: native is the goal; the shim is the scaffold
 
-- Status: accepted
+- Status: superseded by ADR-0016
 - Date: 2026-08-11
 
 ## Context

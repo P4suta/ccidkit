@@ -4,7 +4,7 @@
 
 [package]
 name = "ccidkit"
-description = "Pure-Rust smart card stack: CCID readers over USB, with a PC/SC shim and a virtual backend"
+description = "One-door Rust smart card stack: native CCID, PC/SC coexistence, and deterministic virtual readers"
 keywords = ["smartcard", "ccid", "pcsc", "apdu", "reader"]
 categories = ["hardware-support", "authentication", "api-bindings"]
 readme = "../../README.md"
@@ -15,10 +15,26 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
+build = "build.rs"
 
-# Dependencies are declared when code needs them. This crate may name core, apdu, and
-# the three backends (`just deps`); it is the one place runtime heterogeneity lives.
+[features]
+# Platform defaults need no feature: native USB on Linux and PC/SC on Windows/macOS.
+# Features only add the non-default backend for a platform, and are always additive.
+default = []
+pcsc = ["dep:pcsc"]
+native-usb = ["dep:nusb"]
+
 [dependencies]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nusb = "0.2.7"
+pcsc = { version = "2.9.0", optional = true }
+
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+pcsc = "2.9.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+nusb = { version = "0.2.7", optional = true }
 
 [lints]
 workspace = true
