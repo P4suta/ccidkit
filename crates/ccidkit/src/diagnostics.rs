@@ -64,14 +64,6 @@ impl Capabilities {
         }
     }
 
-    pub(crate) const fn pcsc() -> Self {
-        Self::new(1, 65_538, ExchangeLevel::ExtendedApdu, true, true)
-    }
-
-    pub(crate) const fn virtual_reader() -> Self {
-        Self::new(1, 65_538, ExchangeLevel::ExtendedApdu, true, true)
-    }
-
     /// Number of independently addressable card slots.
     #[must_use]
     pub const fn slots(&self) -> u8 {

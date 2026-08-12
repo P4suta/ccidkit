@@ -8,7 +8,7 @@ use std::sync::Arc;
 use pcsc as api;
 
 use crate::backend::ReaderRecord;
-use crate::diagnostics::{BackendKind, Capabilities};
+use crate::diagnostics::{BackendKind, Capabilities, ExchangeLevel};
 use crate::{Atr, Command, Error, ErrorKind, ReaderId, Response, Result};
 
 pub(crate) fn probe() -> Result<()> {
@@ -31,11 +31,15 @@ pub(crate) fn readers() -> Result<Vec<ReaderRecord>> {
                 id: ReaderId::from_name(BackendKind::Pcsc, &name),
                 name: Arc::clone(&name),
                 backend: BackendKind::Pcsc,
-                capabilities: Capabilities::pcsc(),
+                capabilities: capabilities(),
                 selector: name,
             }
         })
         .collect())
+}
+
+const fn capabilities() -> Capabilities {
+    Capabilities::new(1, 65_538, ExchangeLevel::ExtendedApdu, true, true)
 }
 
 pub(crate) fn connect(selector: &str) -> Result<(PcscCard, Atr)> {

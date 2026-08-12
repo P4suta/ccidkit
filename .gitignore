@@ -3,6 +3,9 @@
 **/*.rs.bk
 *.pdb
 *.tmp
+
+# Local mutation-testing reports
+/mutants.out/
 # Cargo.lock is committed: the exact dependency graph is part of the reproducible build.
 # The quirk table promises every entry was reproduced (docs/adr/0009), so the build a
 # reproduction ran on has to be recoverable.

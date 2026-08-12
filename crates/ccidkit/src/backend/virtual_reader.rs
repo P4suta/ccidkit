@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use crate::backend::ReaderRecord;
-use crate::diagnostics::{BackendKind, Capabilities};
+use crate::diagnostics::{BackendKind, Capabilities, ExchangeLevel};
 use crate::testing::{ExchangeStep, Scenario, ScriptEvent};
 use crate::{Atr, Command, Error, ErrorKind, ReaderId, Response, Result};
 
@@ -43,9 +43,13 @@ pub(crate) fn readers(state: &Arc<Mutex<VirtualState>>) -> Result<Vec<ReaderReco
         id: ReaderId::from_name(BackendKind::Virtual, &name),
         name: Arc::clone(&name),
         backend: BackendKind::Virtual,
-        capabilities: Capabilities::virtual_reader(),
+        capabilities: capabilities(),
         selector: name,
     }])
+}
+
+const fn capabilities() -> Capabilities {
+    Capabilities::new(1, 65_538, ExchangeLevel::ExtendedApdu, true, true)
 }
 
 pub(crate) fn connect(state: &Arc<Mutex<VirtualState>>) -> Result<(VirtualCard, Atr)> {

@@ -140,21 +140,62 @@ pub(crate) enum CardTransaction<'a> {
     Usb(&'a mut UsbCard),
 }
 
+trait BeginTransaction {
+    type Transaction<'a>
+    where
+        Self: 'a;
+
+    fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>>;
+}
+
+impl BeginTransaction for VirtualCard {
+    type Transaction<'a> = &'a mut VirtualCard;
+
+    fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>> {
+        Ok(self)
+    }
+}
+
+#[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    all(target_os = "linux", feature = "pcsc")
+))]
+impl BeginTransaction for PcscCard {
+    type Transaction<'a> = PcscTransaction<'a>;
+
+    fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>> {
+        self.transaction()
+    }
+}
+
+#[cfg(any(
+    target_os = "linux",
+    all(target_os = "windows", feature = "native-usb")
+))]
+impl BeginTransaction for UsbCard {
+    type Transaction<'a> = &'a mut UsbCard;
+
+    fn begin_transaction(&mut self) -> Result<Self::Transaction<'_>> {
+        Ok(self)
+    }
+}
+
 impl CardIo {
     pub(crate) fn transaction(&mut self) -> Result<CardTransaction<'_>> {
         match self {
-            Self::Virtual(card) => Ok(CardTransaction::Virtual(card)),
+            Self::Virtual(card) => card.begin_transaction().map(CardTransaction::Virtual),
             #[cfg(any(
                 target_os = "windows",
                 target_os = "macos",
                 all(target_os = "linux", feature = "pcsc")
             ))]
-            Self::Pcsc(card) => card.transaction().map(CardTransaction::Pcsc),
+            Self::Pcsc(card) => card.begin_transaction().map(CardTransaction::Pcsc),
             #[cfg(any(
                 target_os = "linux",
                 all(target_os = "windows", feature = "native-usb")
             ))]
-            Self::Usb(card) => Ok(CardTransaction::Usb(card)),
+            Self::Usb(card) => card.begin_transaction().map(CardTransaction::Usb),
         }
     }
 
