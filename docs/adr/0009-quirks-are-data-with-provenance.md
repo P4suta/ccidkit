@@ -22,7 +22,7 @@ transcribed entry would be a claim nobody here can defend when it turns out wron
 
 ## Decision
 
-Reader quirks live in `quirks/readers.toml`: one entry per model — `vid`, `pid`,
+Reader quirks live in `crates/ccidkit/quirks/readers.toml`: one entry per model — `vid`, `pid`,
 `name`, `flags[]` from a closed vocabulary, and a `provenance` block (`source`,
 `evidence`, `date`) naming the reproduction that earned the entry: a cassette, an
 issue, or a capture. An entry without our own reproduction does not go in. libccid's

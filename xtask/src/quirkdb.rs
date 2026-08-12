@@ -17,22 +17,18 @@ use std::io;
 use crate::shared::{Gate, array_header, before_comment, quoted_values, table_header};
 
 /// The table, relative to the repository root.
-const QUIRK_TABLE: &str = "quirks/readers.toml";
+const QUIRK_TABLE: &str = "crates/ccidkit/quirks/readers.toml";
 
 /// The flag vocabulary. An entry may only use these; a new kind of misbehavior adds its
 /// flag here (with the sentence saying what it means) in the same change that first uses
 /// it, so the vocabulary and the table cannot drift apart.
 const FLAGS: &[&str] = &[
-    // The class descriptor misstates what the reader can do; trust the table entry.
-    "bogus-descriptor",
     // Claims extended APDU but fails exchanges past the short-APDU boundary.
     "no-extended-apdu",
     // Bulk-out transfers need a zero-length packet after full packets.
     "needs-zlp",
     // The ATR is not valid until well after power-on reports success.
     "slow-power-on",
-    // The advertised PIN pad is unusable; route PIN entry to the host.
-    "pinpad-broken",
 ];
 
 /// Where a reproduction may come from.
@@ -41,7 +37,7 @@ const SOURCES: &[&str] = &["cassette", "issue", "capture"];
 /// The gate, as the dispatcher's table wants it.
 pub(crate) const GATE: Gate = Gate {
     name: "quirkdb",
-    purpose: "quirks/readers.toml is sorted, unique, attributed, and in vocabulary",
+    purpose: "the packaged reader quirk table is sorted, unique, attributed, and in vocabulary",
     reference: "docs/adr/0009",
     run: check,
 };
@@ -277,7 +273,7 @@ mod tests {
     use super::{check, date_shaped, violations_in};
 
     /// A complete, well-formed single entry.
-    const GOOD: &str = "[[reader]]\nvid = 0x08e6\npid = 0x3437\nname = \"Example Reader\"\nflags = [\"bogus-descriptor\"]\n\n[reader.provenance]\nsource = \"cassette\"\nevidence = \"cassettes/example-3437.toml\"\ndate = \"2026-08-11\"\n";
+    const GOOD: &str = "[[reader]]\nvid = 0x08e6\npid = 0x3437\nname = \"Example Reader\"\nflags = [\"no-extended-apdu\"]\n\n[reader.provenance]\nsource = \"cassette\"\nevidence = \"cassettes/example-3437.toml\"\ndate = \"2026-08-11\"\n";
 
     #[test]
     fn the_committed_table_is_valid() {
@@ -308,7 +304,7 @@ mod tests {
 
     #[test]
     fn an_unknown_flag_is_a_violation() {
-        let text = GOOD.replace("bogus-descriptor", "made-up-flag");
+        let text = GOOD.replace("no-extended-apdu", "made-up-flag");
         let found = violations_in(&text);
         assert!(
             found

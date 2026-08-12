@@ -5,13 +5,6 @@
 [workspace]
 resolver = "3"
 members = [
-  "crates/ccid-apdu",
-  "crates/ccid-core",
-  "crates/ccid-proto",
-  "crates/ccid-testkit",
-  "crates/ccid-backend-usb",
-  "crates/ccid-backend-pcsc",
-  "crates/ccid-backend-virtual",
   "crates/ccidkit",
   "crates/ccid-cli",
   "crates/ccid-driverkit",
@@ -30,9 +23,9 @@ authors = ["Yasunobu Sakashita <crates.tank733@slmails.com>"]
 repository = "https://github.com/P4suta/ccidkit"
 homepage = "https://github.com/P4suta/ccidkit"
 
-# Inter-crate dependencies are declared as each crate's code starts needing them, so
-# `cargo shear` stays meaningful. The intended graph is in ARCHITECTURE.md and is
-# enforced by `just deps` against the ALLOWED matrix in xtask/src/deps.rs.
+# `ccidkit` is the only published library. The CLI may name only the library, and the
+# maintainer tools may name the library plus tool-only dependencies. The implementation
+# architecture lives inside the library and is enforced by `just purity`.
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -44,8 +37,8 @@ unreachable = "warn"
 # Every message length, slot count, ATR byte count, and `dwLength` field comes from the
 # device being spoken to. Arithmetic on those numbers must state what it does on overflow.
 arithmetic_side_effects = "warn"
-# Index and slice panics are the classic parser vulnerability, and `ccid-proto` and
-# `ccid-apdu` parse bytes a reader produced.
+# Index and slice panics are the classic parser vulnerability; model, CCID, and T=1
+# modules parse bytes a reader produced.
 indexing_slicing = "warn"
 missing_errors_doc = "allow"
 
@@ -53,10 +46,8 @@ missing_errors_doc = "allow"
 missing_docs = "warn"
 missing_debug_implementations = "warn"
 unreachable_pub = "warn"
-# `forbid(unsafe_code)` is deliberately absent: `ccid-backend-pcsc` is the one unsafe
-# quarantine (docs/adr/0011), and the `unsafe-boundary` xtask gate confines the token to
-# it. What is denied everywhere is an unsafe operation hiding inside an `unsafe fn`
-# without its own block and `// SAFETY:` comment.
+# The library additionally carries `forbid(unsafe_code)`; this lint protects any future
+# workspace target that forgets to opt into the same crate-level rule.
 unsafe_op_in_unsafe_fn = "deny"
 
 [profile.release]

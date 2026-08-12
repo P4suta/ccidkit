@@ -16,11 +16,15 @@ Specifically in scope:
 - Unbounded memory growth or non-termination driven by a device's answers
 - Integer overflow in length or offset arithmetic producing a wrong read rather than a
   defined error
-- A `SAFETY` contract in the PC/SC shim that does not hold
+- A safe dependency boundary that allows malformed PC/SC or USB data to violate a Rust
+  invariant
 
 Out of scope: a reader that misbehaves functionally (that is a quirk entry, see
 [the reader report template](.github/ISSUE_TEMPLATE/reader_report.yml)), and the
 security of the cards themselves.
+
+Repository Rust forbids `unsafe`; reports should therefore include any path from
+untrusted device data to a panic, unbounded resource use, or violated safe-API contract.
 
 ## Reporting
 

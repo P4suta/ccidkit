@@ -1,146 +1,111 @@
 # Architecture
 
-Invariants only. Reasoning lives in [`docs/adr/`](docs/adr/).
+The architecture optimizes for the smallest durable contract, not the largest reusable
+crate graph. Reasoning is recorded in [`docs/adr/`](docs/adr/); this file states the
+current invariants.
 
 ## Shape
 
 ```text
-                ccid-cli                    ccid-driverkit
-                   ▲                          ▲  ▲  ▲
-                ccidkit ──────────────────────┘  │  │   ← facade: Composite, defaults
-            ▲      ▲       ▲                     │  │
-   backend-usb  backend-pcsc  backend-virtual ───┘  │
-      ▲    ▲       ▲    ▲        ▲    ▲             │
-      │  ccid-core─┴────┴────────┘    │             │
-      │    ▲                          │             │
-   ccid-proto ────────────────────────┼─────────────┘
-        ▲                             │
-     ccid-apdu ◄──────────────────────┘
+ applications / ccid / ccdev
+             │
+       public ccidkit API
+ Context → Reader → Card → Transaction
+             │
+      ordered card actor ───── bounded diagnostics
+       ┌─────┼──────┐
+   native   PC/SC   virtual          I/O adapters (private)
+      │
+ CCID transport driver
+      │
+ model · CCID codec · T=1 machine    pure transformations (private)
 ```
 
-`ccid-cli` names only `ccidkit`; `ccid-driverkit` deliberately reaches below the facade
-(core, apdu, proto, the USB and virtual backends) because diagnosing a reader means
-seeing the layers the facade hides. `ccid-testkit` is outside the shipped graph
-entirely: dev-dependency tables only.
+Only `ccidkit` is a published library. Private modules are real architectural
+boundaries, enforced by source-level gates and review, without turning implementation
+choices into crates.io packages or semver promises.
 
-## Invariants
+## Public contract
 
-1. **Native is the goal; the shim is the scaffold**
-   ([ADR 0001](docs/adr/0001-native-is-the-goal-shim-is-the-scaffold.md)). The Rust
-   DevEx API is the product; `ccid-backend-usb` is the measuring stick, and
-   `ccid-backend-pcsc` is both verification scaffold and permanent coexistence route.
+The public surface has four groups:
 
-2. **The protocol core is sans-I/O**
-   ([ADR 0002](docs/adr/0002-sans-io-protocol-core.md)). `ccid-proto` holds no I/O, no
-   clock, and no USB types. Machines emit actions; transports own time and retries.
+| Group | Types |
+| --- | --- |
+| entry and ownership | `Context`, `Reader`, `Card`, `Transaction`, `Monitor` |
+| values | `Command`, `Response`, `StatusWord`, `Atr`, `ReaderId`, `Capabilities` |
+| effects | `Operation<T>`, `Error`, `ErrorKind`, `Result<T>` |
+| opt-in support | `testing::Scenario`, trace values, `BackendKind` |
 
-3. **Static dispatch; heterogeneity lives in one enum**
-   ([ADR 0003](docs/adr/0003-afit-static-dispatch.md)). No `dyn`, no async-trait crate,
-   no backend enum in `ccid-core`. The facade's `Composite` is the only runtime switch.
+There are no public backend traits, backend handles, descriptor types, extension
+points, or dependency types. Adding a built-in backend changes private dispatch, not
+every downstream implementation.
 
-4. **Exclusivity is spoken by types**
-   ([ADR 0004](docs/adr/0004-exclusivity-is-spoken-by-types.md)). Every operation takes
-   `&mut self`; `Transaction` is a concrete borrow guard over `&mut Card`. Proven by a
-   compile-fail doctest pair, not by a runtime lock.
+## Effect model
 
-5. **A status word is data, not an error**
-   ([ADR 0005](docs/adr/0005-sw-is-data-not-error.md)). `transmit` returns
-   `Ok(Response)` for any SW; `Err` means transport or protocol failure.
-   `61xx`/`6Cxx`/extended length/chaining are absorbed by `transmit`, exposed raw by
-   `transmit_raw`.
+`Operation<'a, T>` is both a `Future<Output = Result<T>>` and a blocking handle. It is
+implemented with a completion cell, condition variable, waker, and cancellation flag;
+it does not embed an executor.
 
-6. **Coexist; do not fight the OS**
-   ([ADR 0006](docs/adr/0006-coexist-do-not-fight-the-os.md)). Platform defaults:
-   Linux native + `pcscd` collision diagnosis; Windows `winscard` shim, WinUSB rebind
-   opt-in; macOS `PCSC.framework` shim. No device is ever stolen.
+Every connected card owns one worker thread and FIFO job channel. That actor is the
+only owner of the transport handle and therefore the single serialization point. A
+dropped operation requests cancellation:
 
-7. **One shim crate covers three platforms**
-   ([ADR 0007](docs/adr/0007-one-shim-crate.md)) through the `pcsc` crate; a two-crate
-   hand-written FFI split is the recorded fallback.
+- an observation that has not produced a side effect stops promptly;
+- a card command already submitted is drained before the next job;
+- a scripted `hang()` observes cancellation and releases the worker;
+- no second command can be constructed from the same `Card` borrow meanwhile.
 
-8. **T machines are enums**
-   ([ADR 0008](docs/adr/0008-t-machines-are-enums.md)): `step` functions over data
-   states, not typestates. They never appear in a core trait.
+`Transaction<'_>` holds `&mut Card`. The worker enters a nested service loop for the
+guard's lifetime; PC/SC holds its OS transaction object in that loop, while native and
+virtual cards rely on the same exclusive actor. Dropping the guard enqueues the end
+marker.
 
-9. **Quirks are data with provenance**
-   ([ADR 0009](docs/adr/0009-quirks-are-data-with-provenance.md)):
-   `quirks/readers.toml`, one reproduced entry at a time, schema enforced by
-   `just quirkdb`.
+## Protocol policy
 
-10. **Cassettes are directional and time-free**
-    ([ADR 0010](docs/adr/0010-cassettes-are-directional-and-time-free.md)): `PcToRdr`
-    and `RdrToPc` explicit, no timestamps, hex serde, one schema with `apdu` and `ccid`
-    flavors.
+- Parsers accept complete, validated frames and reject truncation, trailing bytes,
+  reserved statuses, stale sequence numbers, and overflow.
+- `Command` preserves an explicitly extended APDU encoding even when the semantic
+  length could also be represented in short form.
+- `Response` contains every status word. `require_success()` is caller policy.
+- `transmit()` handles `6Cxx` once and `61xx` chaining with a bounded loop;
+  `transmit_raw()` never invents another exchange.
+- The CCID codec and T=1 machine contain no I/O, clock, worker, USB, or PC/SC import.
+  They consume bytes/state and emit bytes/actions.
+- CCID time extensions, APDU chaining, and T=1 action counts are bounded so a hostile
+  device cannot create an unbounded internal loop.
 
-11. **`!Send` is contained in workers; `unsafe` in one crate**
-    ([ADR 0011](docs/adr/0011-not-send-is-contained-in-workers.md)). The shim runs one
-    worker per context with a `Job` enum, oneshot replies, a priority cancel lane, and
-    drop-fired cancel. `ccid-core` never demands `Send`. `unsafe` is confined to
-    `crates/ccid-backend-pcsc/src/` by `just unsafe-boundary`.
+## Backend policy
 
-12. **The error vocabulary is flat**
-    ([ADR 0012](docs/adr/0012-flat-error-vocabulary.md)): `non_exhaustive`, no source
-    chain, retryable conditions as their own variants, no SW inside.
+`BackendKind` is selection data, not an implementation interface. Platform defaults
+coexist with the operating system: Linux attempts native USB and reports `Busy` when
+another service owns the interface; Windows/macOS use their PC/SC services. Windows
+native USB is opt-in because it requires the device to be bound to WinUSB.
 
-13. **The zero-dependency charter**
-    ([ADR 0013](docs/adr/0013-zero-dep-charter.md)): `ccid-apdu` depends on nothing;
-    `ccid-core` and `ccid-proto` on `ccid-apdu` alone; nothing third-party arrives
-    transitively in the pure layer. Enforced by `just purity` and `just deps`.
+The virtual backend is part of the public developer experience but not a separate
+crate. Its consuming `Scenario` vocabulary is intentionally finite; arbitrary callback
+hooks would become a second backend SPI.
 
-14. **The virtual backend is a product**
-    ([ADR 0014](docs/adr/0014-virtual-backend-is-a-product.md)): published, scriptable,
-    with `hang()` as the permanent cancellation-safety fixture.
+## Diagnostics and errors
 
-15. **Naming** ([ADR 0015](docs/adr/0015-naming.md)): facade `ccidkit`, lib prefix
-    `ccid-*`, binaries `ccid` and `ccdev`, disjoint from lib names by `just bin-name`.
+Portable error categories are a flat, non-exhaustive enum. `Error` is opaque and may
+retain a private source for debugging; backend error enums never escape. Retryability
+is computed from the portable category.
 
-## What is gated
+Tracing is opt-in because APDUs may carry secrets. Each subscriber has a bounded queue;
+overflow is an explicit event instead of hidden memory growth or silent loss.
 
-| Gate | Enforces | Runs |
-| --- | --- | --- |
-| `just purity` | the pure layer takes nothing from outside itself, dev deps included | offline, pre-commit |
-| `just deps` | every edge is an arrow the ALLOWED matrix carries (R1, R2, R3, R5, R7) | offline, pre-commit |
-| `just unsafe-boundary` | `unsafe` only in the shim, each block under `// SAFETY:` | offline, pre-commit |
-| `just quirkdb` | quirk table sorted, unique, attributed, in vocabulary | offline, pre-commit |
-| `just bin-name` | no bin target shares a lib crate's name | offline |
-| `just lint` / `just test` | the workspace lint wall and the suite | offline, pre-commit / pre-push |
+## Mechanical gates
 
-Invariants 2, 4, 5, and 11's worker model have no standalone gate. They rest on API
-design, the compile-fail doctest pair (ADR 0004), review, and the virtual backend's
-scenarios. Every gate that exists was written before the code it governs.
+| Gate | Enforces |
+| --- | --- |
+| `just deps` | binaries depend only on `ccidkit`; workspace graph is fully listed |
+| `just purity` | model/CCID/T=1 modules import no effects or backends |
+| `just unsafe-boundary` | no repository source contains an unsafe block/function |
+| `just quirkdb` | quirks are sorted, unique, vocabulary-checked, and evidenced |
+| `just bin-name` | binaries and library crates never share an artifact name |
+| `just lint` | strict arithmetic/indexing/documentation wall across all features |
+| `just test` | behavior, cancellation, and ownership compile-fail proofs |
+| `just mutants` | critical parser and state-machine comparisons are test-sensitive |
 
-## Crate boundaries
-
-The ALLOWED matrix in [`xtask/src/deps.rs`](xtask/src/deps.rs) is the machine-checked
-form of this table (transitively closed, self-tested). Direct intent:
-
-| Crate | Directly depends on | May also reach (closure) |
-| --- | --- | --- |
-| `ccid-apdu` | — | — |
-| `ccid-core` | `ccid-apdu` | — |
-| `ccid-proto` | `ccid-apdu` | — |
-| `ccid-testkit` | — (dev-only, reached from dev tables alone) | — |
-| `ccid-backend-usb` | `ccid-core`, `ccid-apdu`, `ccid-proto` | — |
-| `ccid-backend-pcsc` | `ccid-core`, `ccid-apdu` | — |
-| `ccid-backend-virtual` | `ccid-core`, `ccid-apdu` | — |
-| `ccidkit` | `ccid-core`, `ccid-apdu`, the three backends | `ccid-proto` |
-| `ccid-cli` | `ccidkit` | everything the facade reaches |
-| `ccid-driverkit` | `ccid-core`, `ccid-apdu`, `ccid-proto`, `ccid-backend-usb`, `ccid-backend-virtual` | — |
-
-No inter-crate dependency is declared until code needs it; the intent above and the
-matrix carry the graph until then, so `cargo shear` stays meaningful.
-
-## What lives where
-
-- **Vocabulary** (`Command`, `Sw`, `Response`, `Atr`, `Aid`) lives in `ccid-apdu` and
-  nowhere else; no layer re-invents a status word.
-- **Policy-free protocol** lives in `ccid-proto`: what bytes mean, never when to send
-  them. The `Exchanger` plans per exchange level — APDU-level readers pass through,
-  TPDU-level readers run the T machine, character-level readers are a stated day-one
-  error.
-- **Time, retries, and transfers** live in the backends. The USB backend applies the
-  quirk table at open; quirks are never inferred mid-conversation.
-- **Composition** — choosing a backend, platform defaults, the quickstart — lives in
-  `ccidkit`. The `Composite` enum delegates by hand-written `match`.
-- **Diagnosis** lives in `ccid-driverkit`, which is allowed to see below the facade
-  precisely because it is `publish = false`.
+The only published-library decision and its consequences are frozen in
+[ADR-0016](docs/adr/0016-one-library-one-operation.md).

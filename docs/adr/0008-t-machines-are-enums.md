@@ -1,6 +1,6 @@
 # ADR-0008: the T machines are enums
 
-- Status: accepted
+- Status: superseded by ADR-0016
 - Date: 2026-08-11
 
 ## Context

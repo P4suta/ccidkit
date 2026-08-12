@@ -22,9 +22,8 @@ homepage.workspace = true
 name = "ccid"
 path = "src/main.rs"
 
-# Dependencies are declared when code needs them. The only workspace edge this crate may
-# declare is `ccidkit` (`just deps`): the CLI proves the facade suffices.
 [dependencies]
+ccidkit = { path = "../ccidkit", version = "=0.0.0" }
 
 [lints]
 workspace = true

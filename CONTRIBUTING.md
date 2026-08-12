@@ -37,28 +37,25 @@ fix the cause rather than narrowing the gate.
   them.
 
 - **A status word never becomes an `Err`.** `transmit` returns `Ok(Response)` for any
-  SW; only the caller's `require_ok` decides that `6982` is a failure for its purposes.
+  SW; only the caller's `require_success` decides that `6982` is a failure for its purposes.
   If you find yourself matching an SW to return an error from a backend, the layering
   has broken ([ADR 0005](docs/adr/0005-sw-is-data-not-error.md)).
 
 - **The crate graph is the ALLOWED matrix.** `just deps` checks every edge against
   `xtask/src/deps.rs`, which is transitively closed and self-tested. A new crate needs a
   row, and the row is a design decision, not a formality
-  ([ADR 0013](docs/adr/0013-zero-dep-charter.md)).
+  ([ADR 0016](docs/adr/0016-one-library-one-operation.md)).
 
-- **The pure layer takes nothing from outside itself — dev-dependencies included.**
-  `just purity` reads manifests and rejects any dependency table entry that leaves the
-  layer, so a pure crate cannot pull in a property-testing crate for its own unit
-  tests. Tests needing one belong above the layer, or use `ccid-testkit` (which is
-  itself dependency-free). This bites the first time somebody reaches for `proptest`;
-  it is the cost of a gate that cannot be talked around.
+- **Pure protocol code has no effects.** `just purity` scans the model, CCID, and T=1
+  modules and rejects I/O, time, worker, and backend imports. Keep property tests and
+  byte fixtures in those modules if they remain dependency-free; drive effects through
+  the virtual backend.
 
-- **`unsafe` lives in one directory.** `crates/ccid-backend-pcsc/src/`, every block
-  under a `// SAFETY:` comment whose block states handle validity, buffer provenance,
-  and the failure contract. `just unsafe-boundary` enforces both directions
-  ([ADR 0011](docs/adr/0011-not-send-is-contained-in-workers.md)).
+- **Repository code is safe Rust.** `just unsafe-boundary` rejects unsafe blocks and
+  unsafe functions everywhere. FFI invariants belong to the safe adapter dependencies,
+  not a local quarantine ([ADR 0016](docs/adr/0016-one-library-one-operation.md)).
 
-- **A quirk entry needs a receipt.** Every `quirks/readers.toml` entry carries a
+- **A quirk entry needs a receipt.** Every `crates/ccidkit/quirks/readers.toml` entry carries a
   reproduction of our own — a cassette, an issue, or a capture. libccid's Info.plist is
   a place to confirm a suspicion, never a source to transcribe: their entries are
   observations about their code paths, and copying one imports a conclusion without its

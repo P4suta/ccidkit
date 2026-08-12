@@ -11,7 +11,8 @@ body:
       value: >-
         For a reader that does not work, misbehaves, or seems to need a quirk entry, use
         **Reader report** instead — that needs different information and its outcome is
-        usually a `quirks/readers.toml` entry with evidence. For a panic, a hang, or an
+        usually a `crates/ccidkit/quirks/readers.toml` entry with evidence. For a panic,
+        a hang, or an
         allocation driven by a device's answer, report it privately through
         [a security advisory](https://github.com/P4suta/ccidkit/security/advisories/new)
         rather than here.

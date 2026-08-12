@@ -10,8 +10,8 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 export RUSTDOCFLAGS := "-D warnings"
 
-# No `no-std` or `wasm` lane: the core is std (threads, time) yet I/O-free and
-# dependency-free by design, which `purity` and `deps` enforce instead (docs/adr/0013).
+# No `no-std` or `wasm` lane: the public effect model intentionally uses std threads,
+# while parser/protocol modules remain sans-I/O under `just purity` (ADR-0016).
 
 # List the available development commands.
 default:
@@ -51,16 +51,12 @@ test-ci:
 doc:
     cargo doc --workspace --all-features --no-deps
 
-# No crate carries a feature yet; the powerset is trivial today and this lane exists so
-# the first feature added (backend selection, the vpcd bridge) is compiled in every
-# combination from its first commit rather than from its first breakage.
-
 # Compile no-default, every individual feature, and feature pairs.
 feature-matrix:
     cargo hack check --workspace --all-targets --each-feature
     cargo hack check --workspace --feature-powerset --depth 2
 
-# Reject an outside dependency in the pure layer, dev-dependencies included (docs/adr/0013).
+# Keep parser/protocol source free of I/O, clock, workers, and backend imports.
 purity:
     cargo run --quiet -p xtask -- purity
 
@@ -68,11 +64,11 @@ purity:
 deps:
     cargo run --quiet -p xtask -- deps
 
-# Confine `unsafe` to crates/ccid-backend-pcsc/ and require SAFETY comments there (docs/adr/0011).
+# Reject unsafe blocks and unsafe functions anywhere in repository Rust source.
 unsafe-boundary:
     cargo run --quiet -p xtask -- unsafe-boundary
 
-# Validate quirks/readers.toml: order, uniqueness, provenance, flag vocabulary (docs/adr/0009).
+# Validate the packaged quirk table: order, uniqueness, provenance, and flag vocabulary.
 quirkdb:
     cargo run --quiet -p xtask -- quirkdb
 
@@ -108,22 +104,25 @@ zizmor:
 
 # Verify every workspace crate at the shared declared MSRV.
 msrv:
-    cargo msrv verify --path crates/ccid-apdu
-    cargo msrv verify --path crates/ccid-core
-    cargo msrv verify --path crates/ccid-proto
-    cargo msrv verify --path crates/ccid-testkit
-    cargo msrv verify --path crates/ccid-backend-usb
-    cargo msrv verify --path crates/ccid-backend-pcsc
-    cargo msrv verify --path crates/ccid-backend-virtual
     cargo msrv verify --path crates/ccidkit
     cargo msrv verify --path crates/ccid-cli
     cargo msrv verify --path crates/ccid-driverkit
     cargo msrv verify --path xtask
+
+# Mutation-test only validation and state transitions whose mistakes are protocol bugs.
+mutants:
+    cargo mutants -p ccidkit --all-features \
+        -f 'crates/ccidkit/src/model.rs' \
+        -f 'crates/ccidkit/src/ccid.rs' \
+        -f 'crates/ccidkit/src/protocol.rs' \
+        -f 'crates/ccidkit/src/facade.rs' \
+        -F 'Command::(from_bytes|to_bytes)|Atr::parse|parse_class_descriptor|DeviceMessage::(decode|validate_for|transport_parameters)|Block::(encode|decode)|T1Machine::(new|start|accept)|transmit_automatic' \
+        --minimum-test-timeout 20
 
 # Fast deterministic checks used during the edit/commit loop.
 check: fmt-check toml-check typos lint purity deps unsafe-boundary quirkdb bin-name shear reuse actionlint zizmor
     @echo "fast local checks passed"
 
 # Every practical CI gate available on a developer machine.
-ci: fmt-check toml-check typos lint feature-matrix test-ci doc purity deps unsafe-boundary quirkdb bin-name deny shear reuse actionlint zizmor msrv
+ci: fmt-check toml-check typos lint feature-matrix test-ci doc purity deps unsafe-boundary quirkdb bin-name mutants deny shear reuse actionlint zizmor msrv
     @echo "local CI passed"

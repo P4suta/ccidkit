@@ -5,14 +5,7 @@
 # CI for ccidkit (a pure-Rust CCID/smart card stack).
 #
 # Layout under test:
-#   - ccid-apdu             APDU/SW/ATR/AID vocabulary. Dependency-zero charter.
-#   - ccid-core             Backend/Reader/Card/Transaction/Monitor traits + errors.
-#   - ccid-proto            sans-I/O CCID codec, descriptor, T=0/T=1 machines.
-#   - ccid-testkit          dev-only helpers, publish = false.
-#   - ccid-backend-usb      native CCID over nusb (the destination).
-#   - ccid-backend-pcsc     PC/SC shim (the scaffold and coexistence route).
-#   - ccid-backend-virtual  scripted reader/card, shipped for downstream tests.
-#   - ccidkit               the facade. The binary never shares its name.
+#   - ccidkit               the only library; pure modules and I/O adapters are private.
 #   - ccid-cli              the `ccid` command.
 #   - ccid-driverkit        the `ccdev` bring-up tool, publish = false.
 #   - xtask                 repository policy checks shared by Just and CI.
@@ -26,7 +19,7 @@
 #     not advisory ones. They are what make the architecture in docs/adr/ true rather
 #     than aspirational.
 #   - The test matrix covers Linux, Windows, and macOS as first-class targets: the
-#     platform default backend table (docs/adr/0006) names all three.
+#     platform default backend table names all three.
 #   - A single `ci-required` aggregation gate is the one status context branch protection
 #     references, so the ruleset never desyncs as jobs are added or renamed.
 
@@ -86,6 +79,7 @@ jobs:
       RUSTFLAGS: -D warnings
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           components: clippy
@@ -107,6 +101,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
       - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2.85.3
         with:
@@ -116,6 +112,21 @@ jobs:
       # all three are first-class here, not a courtesy.
       - run: just test-ci
 
+  mutants:
+    name: targeted mutation testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+      - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2.85.3
+        with:
+          tool: just@1.50.0,cargo-mutants@27.1.0
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      # Adapter mutations require hardware; parser and state-transition mutations do not.
+      - run: just mutants
+
   feature-matrix:
     name: feature matrix (cargo-hack, all targets)
     runs-on: ubuntu-latest
@@ -124,6 +135,7 @@ jobs:
       RUSTFLAGS: -D warnings
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
       - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2.85.3
         with:
@@ -132,7 +144,7 @@ jobs:
       - run: just feature-matrix
 
   purity:
-    name: purity (the pure layer takes nothing from outside)
+    name: purity (protocol modules have no effects)
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -D warnings
@@ -162,7 +174,7 @@ jobs:
       - run: just deps
 
   unsafe-boundary:
-    name: unsafe-boundary (unsafe is quarantined to the shim)
+    name: unsafe-boundary (repository code has no unsafe)
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -D warnings
@@ -173,8 +185,7 @@ jobs:
         with:
           tool: just@1.50.0
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      # `forbid(unsafe_code)` is deliberately absent from the workspace lints; this gate
-      # is the replacement, and it also demands the SAFETY comment (docs/adr/0011).
+      # Safe dependency APIs own FFI; repository code has no quarantine (ADR-0016).
       - run: just unsafe-boundary
 
   quirkdb:
@@ -212,6 +223,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
       - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2.85.3
         with:
@@ -307,6 +319,7 @@ jobs:
       - toml
       - clippy
       - test
+      - mutants
       - feature-matrix
       - purity
       - deps

@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Feature request
+description: A concrete user problem that ccidkit may be the right layer to solve
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        ccidkit deliberately carries one small public compatibility surface. Start with
+        the user problem and evidence; a proposed trait or type is not itself the need.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What cannot be done today, by whom, and in which application flow?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and scope
+      description: Readers, cards, platforms, traces, or downstream projects that establish the need.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired behavior
+      description: Describe observable behavior before proposing an API shape.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Why application code, an existing method, or private implementation work cannot solve it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Public compatibility cost
+      description: If public API must grow, identify the smallest addition and why it deserves long-term semver support.
+    validations:
+      required: true

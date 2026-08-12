@@ -1,6 +1,6 @@
 # ADR-0011: `!Send` is contained in workers
 
-- Status: accepted
+- Status: superseded by ADR-0016
 - Date: 2026-08-11
 
 ## Context
