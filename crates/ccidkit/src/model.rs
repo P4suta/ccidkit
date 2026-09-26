@@ -180,14 +180,14 @@ impl Command {
 
         if use_extended {
             encoded.push(0);
-            let length = u16::try_from(self.data.len()).map_or(0, |value| value);
+            let length = u16::try_from(self.data.len()).unwrap_or(0);
             encoded.extend_from_slice(&length.to_be_bytes());
             encoded.extend_from_slice(&self.data);
             if let Some(expected) = self.expected_length {
                 encoded.extend_from_slice(&encode_extended_length(expected));
             }
         } else {
-            let length = u8::try_from(self.data.len()).map_or(0, |value| value);
+            let length = u8::try_from(self.data.len()).unwrap_or(0);
             encoded.push(length);
             encoded.extend_from_slice(&self.data);
             if let Some(expected) = self.expected_length {
@@ -250,7 +250,7 @@ fn encode_short_length(length: u32) -> u8 {
     if length == 256 {
         0
     } else {
-        u8::try_from(length).map_or(0, |value| value)
+        u8::try_from(length).unwrap_or(0)
     }
 }
 
