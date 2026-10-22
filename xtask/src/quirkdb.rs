@@ -282,7 +282,10 @@ mod tests {
 
     #[test]
     fn a_comment_only_table_is_valid_and_empty() {
-        assert!(violations_in("# only prose\n\n# more prose\n").is_empty());
+        assert_eq!(
+            violations_in("# only prose\n\n# more prose\n"),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

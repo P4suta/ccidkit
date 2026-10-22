@@ -5,6 +5,6 @@
 # The toolchain every gate runs on. Tool versions are pinned in mise.toml.
 
 [toolchain]
-channel = "stable"
+channel = "1.99.0"
 components = ["rustfmt", "clippy"]
 profile = "minimal"

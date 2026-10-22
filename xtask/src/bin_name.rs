@@ -106,6 +106,9 @@ mod tests {
 
     #[test]
     fn a_lib_only_manifest_declares_no_bin() {
-        assert!(declared_bin_names("[package]\nname = \"x\"\n").is_empty());
+        assert_eq!(
+            declared_bin_names("[package]\nname = \"x\"\n"),
+            Vec::<String>::new()
+        );
     }
 }

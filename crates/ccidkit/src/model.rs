@@ -550,7 +550,6 @@ impl Atr {
     }
 
     /// Iterate the advertised protocol numbers. T=0 is included when implicit.
-    #[must_use]
     pub fn protocols(&self) -> impl ExactSizeIterator<Item = u8> + '_ {
         self.protocols.iter().copied()
     }

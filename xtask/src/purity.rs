@@ -86,6 +86,9 @@ mod tests {
     #[test]
     fn effects_are_rejected_but_prose_is_not() {
         assert_eq!(violations_in("x.rs", "use std::time::Instant;\n").len(), 1);
-        assert!(violations_in("x.rs", "// std::time is discussed\n").is_empty());
+        assert_eq!(
+            violations_in("x.rs", "// std::time is discussed\n"),
+            Vec::<String>::new()
+        );
     }
 }

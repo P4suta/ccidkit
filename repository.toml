@@ -7,6 +7,7 @@ summary = "Access smart cards through USB CCID, PC/SC, and virtual readers in Ru
 install = """
 git clone https://github.com/P4suta/ccidkit.git
 cd ccidkit
+mise trust
 mise install
 """
 usage_language = "sh"

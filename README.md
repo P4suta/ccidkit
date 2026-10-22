@@ -7,6 +7,7 @@ Access smart cards through USB CCID, PC/SC, and virtual readers in Rust.
 ```sh
 git clone https://github.com/P4suta/ccidkit.git
 cd ccidkit
+mise trust
 mise install
 ```
 
