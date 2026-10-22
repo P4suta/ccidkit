@@ -6,7 +6,7 @@
 # CI uses these same versions; rust-toolchain.toml also names the Rust version.
 
 [tools]
-rust = "1.99.0"
+rust = "1.99.1"
 
 lefthook = "2.1.9"
 committed = "1.1.11"
