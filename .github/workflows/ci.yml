@@ -56,12 +56,11 @@ jobs:
         with:
           base: ${{ github.event.merge_group.base_sha || github.event.repository.default_branch }}
           filters: .github/filters/ci.yml
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283  # v2.87.29
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          tool: mise@2026.10.14
-      - run: |
-          mise trust
-          mise install rust just taplo typos uv actionlint zizmor jq yq
+          version: v2026.10.14
+          install_args: rust just taplo typos uv actionlint zizmor jq yq
+          experimental: true
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
       - run: mise x -- just fmt-check toml-check typos purity deps unsafe-boundary quirkdb bin-name reuse actionlint zizmor
       - run: mise x -- cargo test --locked -p xtask
@@ -115,12 +114,11 @@ jobs:
           persist-credentials: false
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283  # v2.87.29
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          tool: mise@2026.10.14
-      - run: |
-          mise trust
-          mise install rust just cargo-binstall cargo:cargo-nextest
+          version: v2026.10.14
+          install_args: rust just cargo-binstall cargo:cargo-nextest
+          experimental: true
       - if: runner.os == 'Linux'
         run: mise install cargo:cargo-hack cargo:cargo-msrv cargo:cargo-deny cargo:cargo-shear
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
@@ -142,12 +140,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283  # v2.87.29
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          tool: mise@2026.10.14
-      - run: |
-          mise trust
-          mise install jq
+          version: v2026.10.14
+          install_args: jq
+          experimental: true
       - name: Require every selected job to pass
         env:
           NEEDS: ${{ toJSON(needs) }}
