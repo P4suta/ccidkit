@@ -58,7 +58,13 @@ mod tests {
     fn code_is_rejected_but_prose_and_lint_names_are_allowed() {
         assert_eq!(violations_in("x.rs", "unsafe { call() }\n").len(), 1);
         assert_eq!(violations_in("x.rs", "unsafe fn call() {}\n").len(), 1);
-        assert!(violations_in("x.rs", "// unsafe is discussed\n").is_empty());
-        assert!(violations_in("x.rs", "#![forbid(unsafe_code)]\n").is_empty());
+        assert_eq!(
+            violations_in("x.rs", "// unsafe is discussed\n"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            violations_in("x.rs", "#![forbid(unsafe_code)]\n"),
+            Vec::<String>::new()
+        );
     }
 }

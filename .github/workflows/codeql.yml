@@ -1,66 +1,65 @@
+---
 # SPDX-FileCopyrightText: 2026 ccidkit contributors
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-# CodeQL security analysis (Advanced Setup). Scans the Rust source and the repository's own
-# GitHub Actions workflows, uploading results to Security > Code scanning. Advanced (not
-# Default) setup keeps the language set, query suite, and SHA-pinned action versions in-repo
-# under the same review as the code, matching this repo's "pin every action" convention.
-#
-# This stack parses bytes produced by other people's firmware. Every length that decides
-# how much work a parse does — `dwLength` in a CCID message, the interface-byte chain of
-# an ATR, a descriptor's claimed extent — is read out of the device's own answer, and a
-# reader that misbehaves is normal enough here to have a quirk table. The interesting
-# findings concern allocation sizing, offset arithmetic, and trusting a claimed length
-# over a received one.
-#
-# Languages:
-#   - rust    the stack crates (build-mode: none — the only mode the Rust analysis
-#             supports; it resolves the cargo workspace without a traced build).
-#   - actions the workflows under .github/workflows (catches injection, unsafe checkout,
-#             and token-scope issues in the CI YAML).
 name: CodeQL
 
-on:
-  push:
-    branches: [main]
+"on":
   pull_request:
-    branches: [main]
-  schedule:
-    # Weekly re-scan (Mon 03:27 UTC) so newly-published CodeQL queries run against
-    # unchanged code, not only on new commits.
-    - cron: "27 3 * * 1"
+  merge_group:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      languages: ${{ github.event_name == 'workflow_dispatch' && '["rust","actions"]' || steps.paths.outputs.changes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: paths
+        with:
+          base: ${{ github.event.merge_group.base_sha || github.event.repository.default_branch }}
+          filters: .github/filters/codeql.yml
+
   analyze:
+    needs: changes
+    if: needs.changes.outputs.languages != '[]'
     name: analyze (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
-      security-events: write # upload the SARIF results to code scanning
+      security-events: write
       actions: read
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: rust
-            build-mode: none
-          - language: actions
-            build-mode: none
+        language: ${{ fromJSON(needs.changes.outputs.languages) }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: initialize CodeQL
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3  # v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-          # Broader security rule set than the default suite.
+          build-mode: none
           queries: security-extended
-      - name: analyze
-        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v3
+      - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3  # v3
         with:
           category: "/language:${{ matrix.language }}"

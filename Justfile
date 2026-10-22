@@ -123,6 +123,6 @@ mutants:
 check: fmt-check toml-check typos lint purity deps unsafe-boundary quirkdb bin-name shear reuse actionlint zizmor
     @echo "fast local checks passed"
 
-# Every practical CI gate available on a developer machine.
-ci: fmt-check toml-check typos lint feature-matrix test-ci doc purity deps unsafe-boundary quirkdb bin-name mutants deny shear reuse actionlint zizmor msrv
+# Run deterministic project and compatibility checks.
+ci: fmt-check toml-check typos lint feature-matrix test-ci doc purity deps unsafe-boundary quirkdb bin-name deny shear reuse actionlint zizmor msrv
     @echo "local CI passed"

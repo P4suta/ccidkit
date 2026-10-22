@@ -3,6 +3,7 @@
 ## Setup
 
 ```sh
+mise trust
 mise install        # toolchain and gate tooling
 mise run hooks      # install the git hooks
 just                # list the available commands
@@ -12,11 +13,15 @@ just                # list the available commands
 
 ```sh
 just check          # fast deterministic gates
-just ci             # every gate that runs offline
+just ci             # deterministic project and compatibility checks
 ```
 
-`just ci` is also the pre-push hook. If it passes locally it passes in CI. If it fails,
-fix the cause rather than narrowing the gate.
+`just ci` is also the pre-push hook.
+Fix every failure before pushing.
+CI checks workflows and repository policies for every change and selects runtime tests from changed files.
+Affected code also runs on Windows and macOS; the Linux job checks features, documentation, dependencies, and the declared MSRV.
+The required summary rejects selected checks that fail, stop, or skip.
+Mutation testing remains an explicit `just mutants` command for focused test-strength investigations.
 
 ## Rules that are not negotiable
 

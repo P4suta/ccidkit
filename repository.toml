@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name = "ccidkit"
+summary = "Access smart cards through USB CCID, PC/SC, and virtual readers in Rust"
+install = """
+git clone https://github.com/P4suta/ccidkit.git
+cd ccidkit
+mise trust
+mise install
+"""
+usage_language = "sh"
+usage = "mise x -- cargo run --locked -p ccid-cli -- --help"
+documentation_index = true
+copyright = "2026 ccidkit contributors"
+license = "MIT OR Apache-2.0"
+
+[[consent]]
+contributor = "Yasunobu"
+evidence = "https://github.com/P4suta/ccidkit/commit/ec5cda78e25843a53ccd8a33066dec49e0b3716f"
+
+[[consent]]
+contributor = "dependabot[bot]"
+evidence = "https://github.com/P4suta/ccidkit/commit/33ea3fbe1d1ef3999eae2aac26fdda2f7fa34801"

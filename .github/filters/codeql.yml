@@ -1,0 +1,21 @@
+---
+# SPDX-FileCopyrightText: 2026 ccidkit contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+rust:
+  - crates/**
+  - xtask/**
+  - .cargo/**
+  - Cargo.toml
+  - Cargo.lock
+  - rust-toolchain.toml
+  - mise.toml
+  - mise.lock
+  - .github/filters/codeql.yml
+  - .github/workflows/codeql.yml
+
+actions:
+  - .github/workflows/**
+  - .github/actions/**
+  - .github/filters/**

@@ -2,12 +2,14 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-# Install tools with `mise install`. Rust configuration is in rust-toolchain.toml.
-# Every version here is duplicated in .github/workflows/ci.yml and the two must match:
-# a gate that passes locally and fails in CI is worse than no gate.
+# Install tools with `mise install`.
+# CI uses these same versions; rust-toolchain.toml also names the Rust version.
 
 [tools]
-rust = "stable"
+rust = { version = "1.99.1", profile = "minimal", components = [
+  "rustfmt",
+  "clippy",
+] }
 
 lefthook = "2.1.9"
 committed = "1.1.11"
@@ -16,6 +18,8 @@ just = "1.50.0"
 typos = "1.48.0"
 taplo = "0.10.0"
 actionlint = "1.7.12"
+jq = "1.8.2"
+yq = "4.54.1"
 zizmor = "1.28.0"
 
 # REUSE runs through uvx.

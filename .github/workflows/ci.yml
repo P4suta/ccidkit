@@ -1,33 +1,11 @@
+---
 # SPDX-FileCopyrightText: 2026 ccidkit contributors
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-# CI for ccidkit (a pure-Rust CCID/smart card stack).
-#
-# Layout under test:
-#   - ccidkit               the only library; pure modules and I/O adapters are private.
-#   - ccid-cli              the `ccid` command.
-#   - ccid-driverkit        the `ccdev` bring-up tool, publish = false.
-#   - xtask                 repository policy checks shared by Just and CI.
-#
-# Policy:
-#   - Every third-party action is SHA-pinned (Dependabot bumps them weekly); the comment
-#     records the human-readable version.
-#   - Every job runs the same `just` recipe a developer runs locally, so CI and the dev
-#     box cannot drift. A green `just ci` predicts a green pipeline.
-#   - `purity`, `deps`, `unsafe-boundary`, `quirkdb`, and `bin-name` are required gates,
-#     not advisory ones. They are what make the architecture in docs/adr/ true rather
-#     than aspirational.
-#   - The test matrix covers Linux, Windows, and macOS as first-class targets: the
-#     platform default backend table names all three.
-#   - A single `ci-required` aggregation gate is the one status context branch protection
-#     references, so the ruleset never desyncs as jobs are added or renamed.
-
 name: CI
 
-on:
-  push:
-    branches: [main]
+"on":
   pull_request:
   merge_group:
   workflow_dispatch:
@@ -35,331 +13,139 @@ on:
 permissions:
   contents: read
 
-# Cancel superseded runs on the same ref to keep the queue lean.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: short
-  # NOTE: `-D warnings` is applied per job, only on the stable toolchain we can reproduce
-  # locally. It is deliberately not global: the msrv job installs an older toolchain whose
-  # version-specific warnings would turn CI red for a reason invisible to every local
-  # gate. That job still fails on real errors.
+  MISE_AUTO_INSTALL: "false"
+  REQUIRED_GATE: |
+    def gate:
+      type == "object"
+      and ((keys | sort) == ["changes", "check"])
+      and all(.[]; type == "object")
+      and .changes.result == "success"
+      and (.changes.outputs | type == "object")
+      and (.changes.outputs.runtime as $runtime
+        | ($runtime == "true" or $runtime == "false")
+        and (.check.result == (if $runtime == "true" then "success" else "skipped" end)));
 
 jobs:
-  fmt:
-    name: rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-        with:
-          components: rustfmt
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - run: just fmt-check
-
-  toml:
-    name: taplo (TOML formatting)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0,taplo-cli@0.10.0
-      - run: just toml-check
-
-  clippy:
-    name: clippy
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-        with:
-          components: clippy
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: just lint
-
-  test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  changes:
+    name: Workflow and repository checks
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      RUSTFLAGS: -D warnings
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      runtime: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.paths.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: paths
+        with:
+          base: ${{ github.event.merge_group.base_sha || github.event.repository.default_branch }}
+          filters: .github/filters/ci.yml
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
+        with:
+          version: v2026.10.14
+          install_args: rust just taplo typos uv actionlint zizmor jq yq
+          experimental: true
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+      - run: mise x -- just fmt-check toml-check typos purity deps unsafe-boundary quirkdb bin-name reuse actionlint zizmor
+      - run: mise x -- cargo test --locked -p xtask
+      - name: Verify the required gate
+        run: |
+          checks=$(cat <<'JQ'
+            def sample($selector; $states):
+              {changes: {result: $states[0], outputs: {runtime: $selector}},
+               check: {result: $states[1]}};
+            [sample("true"; ["success", "success"]),
+             sample("false"; ["success", "skipped"])] as $valid
+            | ["true", "false", null, "", "unknown", true, false] as $selectors
+            | ["success", "failure", "cancelled", "skipped", null, "", "unknown"] as $states
+            | [$selectors[] as $selector
+               | $states[] as $changes
+               | $states[] as $check
+               | sample($selector; [$changes, $check])
+               | . as $candidate
+               | (gate) == ($valid | any(.[]; . == $candidate))] as $checks
+            | [null, [], {}, ($valid[0] | del(.check)),
+               ($valid[0] | del(.changes.outputs)),
+               ($valid[0] | .changes.outputs = []),
+               ($valid[0] | .check = "invalid")] as $invalid
+            | if (($checks | length) == 343 and all($checks[]; .)
+                  and all($invalid[]; gate | not))
+              then {checked: 350}
+              else false
+              end
+          JQ
+          )
+          mise x -- jq --null-input --exit-status "${REQUIRED_GATE}${checks}"
+      - name: Every job contributes to the required gate
+        run: |
+          mise x -- yq -o=json .github/workflows/ci.yml |
+            mise x -- jq --exit-status '(.jobs.required.needs | sort) == (.jobs | keys - ["required"] | sort)'
+
+  check:
+    needs: changes
+    if: needs.changes.outputs.runtime == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    env:
+      RUSTFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          tool: just@1.50.0,nextest@0.9.140
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # The platform default table (docs/adr/0006) names all three operating systems, so
-      # all three are first-class here, not a courtesy.
-      - run: just test-ci
-
-  mutants:
-    name: targeted mutation testing
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0,cargo-mutants@27.1.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # Adapter mutations require hardware; parser and state-transition mutations do not.
-      - run: just mutants
-
-  feature-matrix:
-    name: feature matrix (cargo-hack, all targets)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0,cargo-hack@0.6.45
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: just feature-matrix
-
-  purity:
-    name: purity (protocol modules have no effects)
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: just purity
-
-  deps:
-    name: deps (the crate graph matches the ALLOWED matrix)
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # The intended graph is data in xtask/src/deps.rs, transitively closed and
-      # self-tested; a new crate cannot slip past by being unlisted (docs/adr/0013).
-      - run: just deps
-
-  unsafe-boundary:
-    name: unsafe-boundary (repository code has no unsafe)
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # Safe dependency APIs own FFI; repository code has no quarantine (ADR-0016).
-      - run: just unsafe-boundary
-
-  quirkdb:
-    name: quirkdb (the quirk table keeps its schema and receipts)
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # Runs green over zero entries: the schema is enforced from the first entry rather
-      # than retrofitted (docs/adr/0009).
-      - run: just quirkdb
-
-  bin-name:
-    name: bin-name (no binary shares a lib crate's name)
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: just bin-name
-
-  doc:
-    name: doc (rustdoc, warnings are errors)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - env:
-          RUSTDOCFLAGS: -D warnings
-        run: just doc
-
-  typos:
-    name: typos
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: crate-ci/typos@8a48f81b6c64dcfea44b3633223084c4be58ac5f # v1.49.0
-
-  msrv:
-    name: msrv (workspace 1.85)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: cargo-msrv@0.19.3,just@1.50.0
-      # `cargo-msrv verify` reads each crate's declared `rust-version` and proves it
-      # builds on that floor.
-      - name: verify declared MSRVs
-        run: just msrv
-
-  reuse:
-    name: reuse (SPDX/REUSE compliance)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0
-      # Run REUSE through `uvx` exactly as `just reuse` does locally rather than the
-      # `fsfe/reuse-action` Docker action, whose anonymous Docker Hub pulls fail
-      # intermittently for reasons unrelated to compliance.
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: 0.11.32
-      - run: just reuse
-
-  deny:
-    name: dependency policy (cargo-deny + cargo-shear)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: cargo-deny@0.20.2,cargo-shear@1.13.3,just@1.50.0
-      - run: just deny
-      - run: just shear
-
-  actionlint:
-    name: actionlint + zizmor (workflow self-check)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2.85.11
-        with:
-          tool: just@1.50.0,zizmor@1.28.0
-      - name: actionlint
+          version: v2026.10.14
+          install_args: rust just cargo-binstall cargo:cargo-nextest
+          experimental: true
+      - if: runner.os == 'Linux'
+        run: mise install cargo:cargo-hack cargo:cargo-msrv cargo:cargo-deny cargo:cargo-shear
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+      - run: mise x -- just test-ci
+      - if: runner.os == 'Linux'
+        run: mise x -- just lint feature-matrix doc deny shear
+      - if: runner.os == 'Linux'
         env:
-          ACTIONLINT_VERSION: 1.7.12
-          # Official digest published on the v1.7.12 GitHub Release asset.
-          ACTIONLINT_LINUX_AMD64_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-        run: |-
-          asset="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          archive="$RUNNER_TEMP/$asset"
-          curl --fail --show-error --location --retry 5 --retry-connrefused \
-            --output "$archive" \
-            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$asset"
-          printf '%s  %s\n' "$ACTIONLINT_LINUX_AMD64_SHA256" "$archive" |
-            sha256sum --check --strict -
-          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint" -color
-      - name: zizmor (offline, high severity)
-        run: just zizmor
+          RUSTFLAGS: ""
+        run: mise x -- just msrv
 
-  # Single aggregation gate. `if: always()` makes failures and cancellations visible
-  # through the one branch-protection status.
-  ci-required:
-    name: ci-required
-    if: always()
-    needs:
-      - fmt
-      - toml
-      - clippy
-      - test
-      - mutants
-      - feature-matrix
-      - purity
-      - deps
-      - unsafe-boundary
-      - quirkdb
-      - bin-name
-      - doc
-      - typos
-      - msrv
-      - reuse
-      - deny
-      - actionlint
-    runs-on: ubuntu-latest
-    steps:
-      - name: verify all required jobs passed (skipped counts as pass)
-        run: |-
-          results="${{ join(needs.*.result, ' ') }}"
-          echo "needs results: $results"
-          for r in $results; do
-            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
-              echo "::error::a required job did not pass ($r)"
-              exit 1
-            fi
-          done
-          echo "all required jobs passed"
-
-  # The one status check branch protection requires,
-  # named the same in every P4suta repository.
-  # It passes only when every job it needs succeeded or was skipped.
   required:
     name: required
     if: always()
-    needs: [ci-required]
-    runs-on: ubuntu-latest
+    needs: [changes, check]
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
-    permissions: {}
     steps:
-      - name: Fail unless every needed job succeeded or was skipped
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
+        with:
+          version: v2026.10.14
+          install_args: jq
+          experimental: true
+      - name: Require every selected job to pass
         env:
-          RESULTS: ${{ toJSON(needs.*.result) }}
-        run: |
-          echo "${RESULTS}"
-          jq -e 'all(.[]; IN("success", "skipped"))' <<< "${RESULTS}"
+          NEEDS: ${{ toJSON(needs) }}
+        run: mise x -- jq --exit-status "${REQUIRED_GATE} gate" <<< "${NEEDS}"
