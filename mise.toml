@@ -28,7 +28,7 @@ uv = "0.13.9"
 cargo-binstall = "1.27.0"
 
 "cargo:cargo-msrv" = "0.19.6"
-"cargo:cargo-deny" = "0.21.0"
+"cargo:cargo-deny" = "0.22.0"
 "cargo:cargo-hack" = "0.6.46"
 "cargo:cargo-nextest" = "0.9.152"
 "cargo:cargo-shear" = "1.14.1"
