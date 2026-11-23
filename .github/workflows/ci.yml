@@ -58,7 +58,7 @@ jobs:
           filters: .github/filters/ci.yml
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          version: v2026.11.9
+          version: v2026.11.10
           install_args: rust just taplo typos uv actionlint zizmor jq yq
           experimental: true
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
@@ -116,7 +116,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes libpcsclite-dev
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          version: v2026.11.9
+          version: v2026.11.10
           install_args: rust just cargo-binstall cargo:cargo-nextest
           experimental: true
       - if: runner.os == 'Linux'
@@ -142,7 +142,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c  # v4.3.0
         with:
-          version: v2026.11.9
+          version: v2026.11.10
           install_args: jq
           experimental: true
       - name: Require every selected job to pass
